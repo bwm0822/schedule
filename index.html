@@ -329,15 +329,26 @@
         '</div>';
 
       row.addEventListener('click', e=>{
-        const isCtl=e.target.closest('button,select,input');
+        const isCtl = e.target.closest('button,select,input');
         if(isCtl) return;
+        // 單選：只選取被點到的這一項
         s.items.forEach(x=> delete x.__selected);
-        if(!it.__selected){ it.__selected=true; } else { delete it.__selected; }
-        if(s.run.active && !s.run.paused){
-          if(s.run.curIdx===idx){ s.run.curItemElapsedSec=0; }
-          else { stopRun(s); }
+        it.__selected = true;
+
+        // 若正在「播放」或「暫停」，點選即切到此項目開始
+        if(s.run.active){
+          s.run.curIdx = idx;
+          s.run.curItemElapsedSec = 0;
+          s.run.scheduleElapsedSec = sumBefore(s.items, idx);
+          initTickerForItem(s.items[idx]);
+          if(!s.run.paused){
+            // 播放中立即從這一項繼續
+            speak(it.prompt);
+          }
+          scrollToRunningItem();
         }
         renderWorkspace();
+        renderSchedules();
       });
 
       // 複製（插在該項目之後，不選取）
@@ -477,6 +488,7 @@
   </script>
 </body>
 </html>
+
 
 
 
