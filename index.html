@@ -370,11 +370,35 @@
   function startRun(){
     const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return; if(!s.items.length) return;
     let startIdx=s.items.findIndex(x=>x.__selected); if(startIdx<0) startIdx=0; if(s.run.active && !s.run.paused) return;
-    if(!s.run.active){ s.run.active=true; s.run.paused=false; s.run.curIdx=startIdx; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=sumBefore(s.items,startIdx); speak(s.items[startIdx].prompt); initTickerForItem(s.items[startIdx]); }
-    else { s.run.paused=false; initTickerForItem(s.items[s.run.curIdx]); }
-    ensureAudio(); lastTick=performance.now(); cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); renderWorkspace(); renderSchedules();
+
+    if(!s.run.active){
+      // 行程開始：發音「<標題> 開始」
+      speak(s.title + ' 開始');
+      s.run.active=true; s.run.paused=false; s.run.curIdx=startIdx; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=sumBefore(s.items,startIdx);
+      // 進入第一個項目時朗讀項目提示
+      speak(s.items[startIdx].prompt);
+      initTickerForItem(s.items[startIdx]);
+    } else {
+      // 從暫停恢復：發音「繼續」
+      s.run.paused=false;
+      speak('繼續');
+      initTickerForItem(s.items[s.run.curIdx]);
+    }
+    ensureAudio();
+    lastTick=performance.now();
+    cancelAnimationFrame(rafId);
+    rafId=requestAnimationFrame(loop);
+    renderWorkspace(); renderSchedules();
   }
-  function pauseRun(){ const s=state.schedules.find(x=>x.id===state.selectedId); if(!s||!s.run.active) return; s.run.paused=true; stopTicker(); cancelAnimationFrame(rafId); renderWorkspace(); renderSchedules(); }
+  function pauseRun(){
+    const s=state.schedules.find(x=>x.id===state.selectedId); if(!s||!s.run.active) return;
+    s.run.paused=true;
+    // 行程暫停：發音「暫停」
+    speak('暫停');
+    stopTicker();
+    cancelAnimationFrame(rafId);
+    renderWorkspace(); renderSchedules();
+  }
   function cancelRun(){ const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return; s.items.forEach(x=> delete x.__selected); stopRun(s); renderWorkspace(); renderSchedules(); }
   function stopRun(s){ s.run.active=false; s.run.paused=false; s.run.curIdx=0; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=0; stopTicker(); cancelAnimationFrame(rafId); }
   function sumBefore(arr,idx){ let sum=0; for(let i=0;i<idx;i++) sum+=arr[i].sec; return sum; }
@@ -387,8 +411,14 @@
       // 播放此項目結束：取消該項目的選取狀態
       if(item.__selected){ delete item.__selected; }
       s.run.curIdx++;
-      // 若已是最後一個項目，停止並清掉所有選取
-      if(s.run.curIdx>=s.items.length){ s.items.forEach(x=> delete x.__selected); stopRun(s); renderWorkspace(); renderSchedules(); return; }
+      // 若已是最後一個項目，停止並清掉所有選取並播報「<標題> 結束」
+      if(s.run.curIdx>=s.items.length){
+        s.items.forEach(x=> delete x.__selected);
+        speak(s.title + ' 結束');
+        stopRun(s);
+        renderWorkspace(); renderSchedules();
+        return;
+      }
       const nextItem=s.items[s.run.curIdx];
       s.run.curItemElapsedSec=0;
       speak(nextItem.prompt);
@@ -443,6 +473,7 @@
   </script>
 </body>
 </html>
+
 
 
 
