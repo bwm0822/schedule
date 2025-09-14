@@ -158,7 +158,7 @@
     const list=qs('#scheduleList'); list.innerHTML='';
     state.schedules.forEach(s=>{
       const total=s.items.reduce((a,b)=>a+b.sec,0)||0;
-      const remaining=total - s.run.scheduleElapsedSec;
+      const remaining=clamp(total - s.run.scheduleElapsedSec, 0, total);
       const p= total? clamp(s.run.scheduleElapsedSec/total,0,1):0;
 
       const titleHtml = s.editing
@@ -172,7 +172,7 @@
         '<div class="sched-grid position-relative">\n'
         + '  <div class="sched-overlay left cover-blue" style="--p:'+p+'"></div>\n'
         + '  <div class="sched-title">'+titleHtml+'</div>\n'
-        + '  <div class="sched-time"><div class="time">'+((s.run.active||s.run.paused)?fmtMMSS(remaining):'00:00')+'</div></div>\n'
+        + '  <div class="sched-time"><div class="time">'+fmtMMSS(remaining)+'</div></div>\n'
         + '  <div class="sched-actions">\n'
         + '    <div class="dropdown">\n'
         + '      <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">⚙</button>\n'
@@ -313,9 +313,16 @@
     const dt=Math.max(0,(ts-lastTick)/1000); lastTick=ts;
     const item=s.items[s.run.curIdx]; s.run.curItemElapsedSec+=dt; s.run.scheduleElapsedSec+=dt; advanceTicker();
     if(item.sec>0 && s.run.curItemElapsedSec>=item.sec){
+      // 播放此項目結束：取消該項目的選取狀態
+      if(item.__selected){ delete item.__selected; }
       s.run.curIdx++;
-      if(s.run.curIdx>=s.items.length){ stopRun(s); renderWorkspace(); renderSchedules(); return; }
-      const nextItem=s.items[s.run.curIdx]; s.run.curItemElapsedSec=0; speak(nextItem.prompt); initTickerForItem(nextItem); scrollToRunningItem();
+      // 若已是最後一個項目，停止並清掉所有選取
+      if(s.run.curIdx>=s.items.length){ s.items.forEach(x=> delete x.__selected); stopRun(s); renderWorkspace(); renderSchedules(); return; }
+      const nextItem=s.items[s.run.curIdx];
+      s.run.curItemElapsedSec=0;
+      speak(nextItem.prompt);
+      initTickerForItem(nextItem);
+      scrollToRunningItem();
     }
     renderWorkspace(); renderSchedules(); rafId=requestAnimationFrame(loop);
   }
@@ -358,3 +365,5 @@
   </script>
 </body>
 </html>
+
+
