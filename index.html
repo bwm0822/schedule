@@ -27,9 +27,9 @@
     .schedule{
       border:1px solid var(--border);
       border-radius:.5rem;
-      /* overflow:hidden;  ← 原本會裁切 dropdown，改為： */
-      overflow:visible;          /* 允許下拉選單外露 */
-      position:relative;         /* 供 z-index 生效 */
+      /* 重要：不要裁切，以免 dropdown 被吃掉 */
+      overflow:visible;
+      position:relative; /* 供 z-index 生效 */
       margin-bottom:.6rem;
       background:#2a2f33;
       cursor:pointer;
@@ -38,7 +38,7 @@
     .schedule:hover{transform:translateY(-1px)}
     .schedule.selected{outline:2px solid rgba(13,110,253,.6);}
     .schedule.editing{cursor:text}
-    .schedule.dropdown-open{ z-index:3000; } /* 下拉展開時蓋在最上層 */
+    .schedule.dropdown-open{ z-index:3000; }
 
     .sched-grid{display:grid;grid-template-rows:1fr 1fr;grid-template-columns:4fr 1fr;min-height:96px}
     .sched-title{grid-column:1/3;grid-row:1;display:flex;align-items:center;padding:.5rem .75rem;position:relative}
@@ -50,12 +50,12 @@
     .sched-actions{grid-column:2;grid-row:2;border-left:1px solid var(--border);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative}
 
     /* 進度覆蓋（行程藍色）—覆蓋標題+時間（左側區域） */
-    .sched-overlay{position:absolute;inset:0;pointer-events:none; border-radius:inherit;}
+    .sched-overlay{position:absolute;inset:0;pointer-events:none;border-radius:inherit}
     .sched-overlay.left{grid-column:1;grid-row:1/3}
 
-    /* 我們用背景漸層做覆蓋條 */
-    .cover-blue{background:linear-gradient(90deg,var(--blue-overlay) calc(var(--p,0)*100%),transparent 0); border-radius:inherit}
-    .cover-yellow{background:linear-gradient(90deg,var(--yellow-overlay) calc(var(--p,0)*100%),transparent 0); border-radius:inherit}
+    /* 背景漸層做覆蓋條 */
+    .cover-blue{background:linear-gradient(90deg,var(--blue-overlay) calc(var(--p,0)*100%),transparent 0);border-radius:inherit;pointer-events:none}
+    .cover-yellow{background:linear-gradient(90deg,var(--yellow-overlay) calc(var(--p,0)*100%),transparent 0);border-radius:inherit;pointer-events:none}
 
     /* 右側工作區 */
     .workspace{flex:1;display:flex;flex-direction:column}
@@ -93,10 +93,7 @@
 
     /* 保險：提高 dropdown 本身層級 */
     .schedule .dropdown-menu{ z-index:3100; }
-    
-    /* 讓覆蓋條不攔截按鈕點擊（避免 🗑、＋ 按鈕失效） */
-    .cover-blue, .cover-yellow{ pointer-events:none; }
-</style>
+  </style>
 </head>
 <body>
   <div class="app">
@@ -135,7 +132,7 @@
 
           <div class="items" id="itemsArea"></div>
           <div class="items-add px-3 pb-3">
-            <button id="btnAddItem" class="btn btn-outline-light">＋ 在前方插入一個項目</button>
+            <button id="btnAddItem" class="btn btn-outline-light">＋ 在最後新增一個項目</button>
           </div>
         </div>
       </div>
@@ -146,7 +143,7 @@
   <script>
   // ---- 資料結構 ----
   const state = {
-    schedules: [],           // {id,title,items:[{id,sec,freq,prompt}], selected, editing, run:{active, paused, startTs, curIdx, curItemElapsedSec, scheduleElapsedSec}}
+    schedules: [],           // {id,title,items:[{id,sec,freq,prompt}], selected, editing, run:{active, paused, curIdx, curItemElapsedSec, scheduleElapsedSec}}
     selectedId: null,
     audio: { ctx:null, ticker:null, nextTickTs:0, tickIntervalMs:1000 },
     voices: [],
@@ -155,17 +152,16 @@
 
   // ---- 工具 ----
   const qs = (sel,el=document)=>el.querySelector(sel);
-  const qsa = (sel,el=document)=>[...el.querySelectorAll(sel)];
   const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
   const fmtMMSS = (sec)=>{
     sec = Math.max(0, Math.round(sec));
     const m = Math.floor(sec/60), s = sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  }
+  };
   const parseTimeInput = (txt)=>{
     txt = (txt||'').trim();
     if(!txt) return 0;
-    if(/^\d+$/.test(txt)) return parseInt(txt,10); // 以秒
-    if(/^:/.test(txt)) return 0; // ← 修正原本的 /:^/
+    if(/^([0-9]+)$/.test(txt)) return parseInt(txt,10); // 以秒（避免在替換器中出現 \\d）
+    if(/^:/.test(txt)) return 0;
     const parts = txt.split(':');
     if(parts.length===2){
       let m = parseInt(parts[0]||'0',10)||0;
@@ -174,18 +170,18 @@
       return m*60 + s;
     }
     return 0;
-  }
+  };
+  const escapeHtml = (s)=> s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
   function speak(text){
     if(!text) return;
     try{
       const utter = new SpeechSynthesisUtterance(text);
-      // 嘗試找中文語音
       const zh = state.voices.find(v=>/zh|cmn/i.test(v.lang));
       if(zh) utter.voice = zh;
       utter.rate = 1; utter.pitch = 1; utter.volume = 1;
       window.speechSynthesis.speak(utter);
-    }catch(e){/* ignore */}
+    }catch(e){}
   }
 
   function ensureAudio(){
@@ -205,24 +201,10 @@
     osc.start(); osc.stop(ctx.currentTime + 0.03);
   }
 
-  // ---- 初始範例行程 ----
+  // ---- 初始範例行程（不預放項目） ----
   function createSample(){
-    const s1 = {
-      id:newId(), title:'早晨專注', selected:false, editing:false,
-      items:[
-        {id:newId(), sec: 60, freq:60, prompt:'專注深呼吸一分鐘'},
-        {id:newId(), sec:120, freq:80, prompt:'閱讀技術文章兩分鐘'},
-        {id:newId(), sec: 30, freq: 0, prompt:'稍作伸展三十秒'},
-      ],
-      run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0}
-    };
-    const s2 = { id:newId(), title:'番茄鐘 25-5', selected:false, editing:false,
-      items:[
-        {id:newId(), sec:1500, freq:60, prompt:'專注工作 25 分鐘'},
-        {id:newId(), sec: 300, freq: 0, prompt:'休息 5 分鐘'},
-      ],
-      run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0}
-    };
+    const s1 = { id:newId(), title:'早晨專注', selected:false, editing:false, items: [], run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0} };
+    const s2 = { id:newId(), title:'番茄鐘 25-5', selected:false, editing:false, items: [], run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0} };
     state.schedules.push(s1,s2);
   }
 
@@ -243,8 +225,8 @@
 
           <div class="sched-title">
             ${s.editing
-              ? `<input class="form-control form-control-sm" value="${escapeHtml(s.title)}" data-role="title-input"/>`
-              : `<div class="title-text">${escapeHtml(s.title)}</div>`}
+              ? `<input class=\"form-control form-control-sm\" value=\"${escapeHtml(s.title)}\" data-role=\"title-input\"/>`
+              : `<div class=\"title-text\">${escapeHtml(s.title)}</div>`}
           </div>
 
           <div class="sched-time">
@@ -263,16 +245,14 @@
           </div>
         </div>`;
 
-      // 事件：點卡片 -> 選取/取消（編輯模式下不切換）
       card.addEventListener('click', (ev)=>{
         const isToggleBtn = ev.target.closest('.dropdown');
         const isInput = ev.target.matches('input,textarea,select');
-        if(isToggleBtn || isInput) return; // 由其他區塊處理
-        if(s.editing) return; // 編輯中不允許切換選取
+        if(isToggleBtn || isInput) return;
+        if(s.editing) return;
         if(s.selected){ selectSchedule(null); } else { selectSchedule(s.id); }
       });
 
-      // 下拉選單
       card.querySelectorAll('[data-act]').forEach(a=>{
         a.addEventListener('click', (ev)=>{
           ev.preventDefault(); ev.stopPropagation();
@@ -280,10 +260,9 @@
           if(act==='edit') toggleEditSchedule(s.id, true);
           if(act==='dup') duplicateSchedule(s.id);
           if(act==='del') deleteSchedule(s.id);
-        })
+        });
       });
 
-      // 編輯標題輸入
       const input = card.querySelector('[data-role="title-input"]');
       if(input){
         input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); finishEditSchedule(s.id, input.value); }});
@@ -293,10 +272,6 @@
 
       list.appendChild(card);
     });
-  }
-
-  function escapeHtml(s){
-    return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   }
 
   function selectSchedule(id){
@@ -313,14 +288,13 @@
   }
   function finishEditSchedule(id, title){
     const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    s.title = title.trim()||'未命名行程';
+    s.title = (title||'').trim()||'未命名行程';
     s.editing = false;
     renderSchedules();
   }
   function duplicateSchedule(id){
     const s = state.schedules.find(x=>x.id===id); if(!s) return;
     const copy = JSON.parse(JSON.stringify(s));
-    // 重新指派 id
     copy.id = newId();
     copy.title = s.title + ' (副本)';
     copy.selected = false; copy.editing = false;
@@ -345,13 +319,11 @@
     if(!s){ wsEmpty.classList.remove('d-none'); wsArea.classList.add('d-none'); return; }
     wsEmpty.classList.add('d-none'); wsArea.classList.remove('d-none');
 
-    // 剩餘時間 & 覆蓋
     const total = s.items.reduce((a,b)=>a+b.sec,0) || 0;
     const remain = clamp(total - s.run.scheduleElapsedSec, 0, total);
     qs('#wsRemain').textContent = fmtMMSS(remain);
     qs('#wsRemainCover').style.setProperty('--p', total? (s.run.scheduleElapsedSec/total) : 0);
 
-    // 項目列表
     const wrap = qs('#itemsArea'); wrap.innerHTML='';
     s.items.forEach((it,idx)=>{
       const isRunning = s.run.active && s.run.curIdx===idx && !s.run.paused;
@@ -362,32 +334,29 @@
       row.className = 'item' + (it.__selected?' selected':'') + (isRunning?' running':'');
       row.dataset.id = it.id; row.dataset.idx = idx;
       row.innerHTML = `
-        <div class="cover-yellow position-absolute top-0 start-0 w-100 h-100" style="--p:${p}"></div>
-        <div class="item-grid">
-          <div class="cell center"><button class="btn btn-sm btn-outline-light" data-role="dup-item">＋</button></div>
-          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="time" value="${fmtMMSS(it.sec)}" placeholder="mm:ss"></div>
-          <div class="cell"><div class="freq-wrap">
-            <select class="form-select form-select-sm w-auto" data-role="freq">
-              <option ${it.freq==0?'selected':''} value="0">0</option>
-              <option ${it.freq==60?'selected':''} value="60">60</option>
-              <option ${it.freq==80?'selected':''} value="80">80</option>
+        <div class=\"cover-yellow position-absolute top-0 start-0 w-100 h-100\" style=\"--p:${p}\"></div>
+        <div class=\"item-grid\">
+          <div class=\"cell center\"><button class=\"btn btn-sm btn-outline-light\" data-role=\"dup-item\">＋</button></div>
+          <div class=\"cell\"><input type=\"text\" class=\"form-control form-control-sm\" data-role=\"time\" value=\"${fmtMMSS(it.sec)}\" placeholder=\"mm:ss\"></div>
+          <div class=\"cell\"><div class=\"freq-wrap\">
+            <select class=\"form-select form-select-sm w-auto\" data-role=\"freq\">
+              <option ${it.freq==0?'selected':''} value=\"0\">0</option>
+              <option ${it.freq==60?'selected':''} value=\"60\">60</option>
+              <option ${it.freq==80?'selected':''} value=\"80\">80</option>
             </select><span>/分</span>
           </div></div>
-          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="prompt" value="${escapeHtml(it.prompt||'')}" placeholder="提示文字"></div>
-          <div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>
+          <div class=\"cell\"><input type=\"text\" class=\"form-control form-control-sm\" data-role=\"prompt\" value=\"${escapeHtml(it.prompt||'')}\" placeholder=\"提示文字\"></div>
+          <div class=\"cell center\"><button class=\"btn btn-sm btn-outline-danger\" data-role=\"del-item\">🗑</button></div>
         </div>`;
 
-      // 點擊項目：選取/取消；運行時邏輯
       row.addEventListener('click', (e)=>{
         const isCtl = e.target.closest('button,select,input');
-        if(isCtl) return; // 控制元件不觸發選取切換
-        // 單選邏輯：清其它
+        if(isCtl) return;
         s.items.forEach(x=> delete x.__selected);
         if(!it.__selected){ it.__selected = true; } else { delete it.__selected; }
-        // 運行中點選：取消正在運行的項目；若點的是當前運行項 -> 重置
         if(s.run.active && !s.run.paused){
-          if(s.run.curIdx===idx){ s.run.curItemElapsedSec = 0; } // 重置當前
-          else { stopRun(s); } // 取消整體運行
+          if(s.run.curIdx===idx){ s.run.curItemElapsedSec = 0; }
+          else { stopRun(s); }
         }
         renderWorkspace();
       });
@@ -396,30 +365,27 @@
       row.querySelector('[data-role="dup-item"]').addEventListener('click', (e)=>{
         e.stopPropagation();
         const clone = {...it, id:newId()};
-        delete clone.__selected; // 不要沿用選取狀態
-        s.items.splice(idx+1,0,clone); // 放在當前項目之後
+        delete clone.__selected;
+        s.items.splice(idx+1,0,clone);
         renderWorkspace();
       });
-      // 刪除項目
+
       row.querySelector('[data-role="del-item"]').addEventListener('click', (e)=>{
         e.stopPropagation();
         if(s.items.length===1){ s.items[0].sec=0; s.items[0].prompt=''; s.items[0].freq=0; }
         else { s.items.splice(idx,1); }
-        // 若刪到正在運行的前面/本身，做安全處理
         if(s.run.active){ stopRun(s); }
         renderWorkspace();
       });
-      // 時間輸入
+
       row.querySelector('[data-role="time"]').addEventListener('change', (e)=>{
         const secs = parseTimeInput(e.target.value);
         it.sec = secs; e.target.value = fmtMMSS(it.sec);
         renderWorkspace(); renderSchedules();
       });
-      // 頻率
       row.querySelector('[data-role="freq"]').addEventListener('change', (e)=>{
         it.freq = parseInt(e.target.value,10)||0;
       });
-      // 提示
       row.querySelector('[data-role="prompt"]').addEventListener('change', (e)=>{
         it.prompt = e.target.value;
       });
@@ -433,21 +399,16 @@
   function startRun(){
     const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
     if(!s.items.length) return;
-    // 決定起始項目
     let startIdx = s.items.findIndex(x=>x.__selected);
     if(startIdx<0) startIdx = 0;
-    // 若原本就在運行而且未暫停 -> 直接返回
     if(s.run.active && !s.run.paused) return;
 
-    // 若是從停止狀態啟動
     if(!s.run.active){
       s.run.active = true; s.run.paused = false;
       s.run.curIdx = startIdx; s.run.curItemElapsedSec = 0; s.run.scheduleElapsedSec = sumBefore(s.items, startIdx);
-      // 進入起始項目時朗讀提示
       speak(s.items[startIdx].prompt);
       initTickerForItem(s.items[startIdx]);
     } else {
-      // 從暫停恢復
       s.run.paused = false;
       initTickerForItem(s.items[s.run.curIdx]);
     }
@@ -468,7 +429,6 @@
   }
   function cancelRun(){
     const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    // 清除所有選取（項目）
     s.items.forEach(x=> delete x.__selected);
     stopRun(s);
     renderWorkspace(); renderSchedules();
@@ -478,9 +438,7 @@
     stopTicker(); cancelAnimationFrame(rafId);
   }
 
-  function sumBefore(arr, idx){
-    let sum = 0; for(let i=0;i<idx;i++) sum += arr[i].sec; return sum;
-  }
+  function sumBefore(arr, idx){ let sum = 0; for(let i=0;i<idx;i++) sum += arr[i].sec; return sum; }
 
   function loop(ts){
     const s = state.schedules.find(x=>x.id===state.selectedId); if(!s || !s.run.active || s.run.paused){ cancelAnimationFrame(rafId); return; }
@@ -490,24 +448,19 @@
     s.run.curItemElapsedSec += dt;
     s.run.scheduleElapsedSec += dt;
 
-    // 自動滴答（以 /分 為單位）
     advanceTicker();
 
     if(item.sec>0 && s.run.curItemElapsedSec >= item.sec){
-      // 下一個項目
       s.run.curIdx++;
       if(s.run.curIdx >= s.items.length){
-        // 完成
         stopRun(s);
         renderWorkspace(); renderSchedules();
         return;
       }
       const nextItem = s.items[s.run.curIdx];
-      s.run.curItemElapsedSec = 0; // reset for next
-      // 朗讀提示
+      s.run.curItemElapsedSec = 0;
       speak(nextItem.prompt);
       initTickerForItem(nextItem);
-      // 自動滾動到目前項目
       scrollToRunningItem();
     }
 
@@ -515,22 +468,20 @@
     rafId = requestAnimationFrame(loop);
   }
 
-  // ---- 自動滾動 ----
   function scrollToRunningItem(){
     const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    const sel = `[data-idx="${s.run.curIdx}"]`;
-    const el = qs(sel, qs('#itemsArea'));
+    const el = qs(`[data-idx="${s.run.curIdx}"]`, qs('#itemsArea'));
     if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
   }
 
   // ---- 滴答器 ----
   function initTickerForItem(item){
     const ctx = ensureAudio(); if(!ctx) return;
-    stopTicker(); // 重置
+    stopTicker();
     const bpm = item.freq||0; if(bpm<=0) return;
     state.audio.tickIntervalMs = 60000 / bpm;
     state.audio.nextTickTs = performance.now();
-    state.audio.ticker = true; // 啟用
+    state.audio.ticker = true;
   }
   function stopTicker(){ state.audio.ticker = null; }
   function advanceTicker(){
@@ -543,47 +494,41 @@
   function hookEvents(){
     qs('#btnAddSchedule').addEventListener('click', ()=>{
       const s = { id:newId(), title:'新行程', selected:false, editing:false,
-        items:[ {id:newId(), sec:0, freq:0, prompt:''} ],
+        items: [],
         run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0}
       };
       state.schedules.push(s);
       renderSchedules();
     });
 
+    // 在「最後」新增一個項目
     qs('#btnAddItem').addEventListener('click', ()=>{
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    s.items.push({id:newId(), sec:0, freq:0, prompt:''}); // 新增在最後
-    renderWorkspace();
-    // 滾到最後一個項目
-    const area = qs('#itemsArea');
-    if(area) area.scrollTop = area.scrollHeight;
-  });
+      const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
+      s.items.push({id:newId(), sec:0, freq:0, prompt:''});
+      renderWorkspace();
+      const area = qs('#itemsArea'); if(area) area.scrollTop = area.scrollHeight;
+    });
 
     qs('#btnPlay').addEventListener('click', ()=>{
-      // 必須先選取一個行程
       if(!state.selectedId) return;
       ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume();
-      // 朗讀當前或選取的項目（startRun 裡已處理）
       startRun(); scrollToRunningItem();
     });
     qs('#btnPause').addEventListener('click', ()=> pauseRun());
     qs('#btnCancel').addEventListener('click', ()=> cancelRun());
 
-    // 載入語音清單
     if('speechSynthesis' in window){
       const loadVoices = ()=>{ state.voices = speechSynthesis.getVoices(); };
       speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
     }
   }
 
-  // 讓展開中的下拉選單所在卡片提高 z-index（避免被其它卡片或覆蓋層擋住）
+  // Dropdown 展開/關閉時提高卡片層級
   document.addEventListener('show.bs.dropdown', (e)=>{
-    const card = e.target.closest('.schedule');
-    if(card) card.classList.add('dropdown-open');
+    const card = e.target.closest('.schedule'); if(card) card.classList.add('dropdown-open');
   });
   document.addEventListener('hide.bs.dropdown', (e)=>{
-    const card = e.target.closest('.schedule');
-    if(card) card.classList.remove('dropdown-open');
+    const card = e.target.closest('.schedule'); if(card) card.classList.remove('dropdown-open');
   });
 
   // ---- 啟動 ----
@@ -594,6 +539,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
