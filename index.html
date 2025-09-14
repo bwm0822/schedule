@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>行程計時器</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Favicon: inline SVG to avoid /favicon.ico 404 -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='24' fill='%232a2f33'/%3E%3Cg fill='none' stroke='%23ffc107' stroke-width='12' stroke-linecap='round'%3E%3Ccircle cx='64' cy='64' r='42'/%3E%3Cpath d='M64 28v36l24 12'/%3E%3C/g%3E%3C/svg%3E">
   <style>
     :root{
       --left-w: 30vw;
@@ -81,6 +83,7 @@
 
     .clicky{transition:transform .08s ease}
     .clicky:active{transform:scale(.98)}
+    .dragging{opacity:.6}
 
     .schedule .dropdown-menu{z-index:3100}
   </style>
@@ -179,8 +182,12 @@
   const parseTimeInput=(txt)=>{ txt=(txt||'').trim(); if(!txt) return 0; if(/^\d+$/.test(txt)) return parseInt(txt,10); if(/^:/.test(txt)) return 0; const parts=txt.split(':'); if(parts.length===2){ let m=parseInt(parts[0]||'0',10)||0; let s=parseInt(parts[1]||'0',10)||0; m+=Math.floor(s/60); s=s%60; return m*60+s; } return 0; };
   const escapeHtml=(s)=> String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
-  function speak(text){ if(!text) return; try{ const utter=new SpeechSynthesisUtterance(text); const zh=state.voices.find(v=>/zh|cmn/i.test(v.lang)); if(zh) utter.voice=zh; utter.rate=1; utter.pitch=1; utter.volume=1; window.speechSynthesis.speak(utter);}catch(e){} }
+  // ---- 拖曳 DnD ----
+  const dnd = { type:null, scheduleId:null, itemId:null };
+  function moveInArray(arr, from, to){ if(from===to||from<0||to<0||from>=arr.length||to>arr.length) return; const [x]=arr.splice(from,1); arr.splice(to,0,x); }
+  function indexFromY(container, selector, y){ const els=[...container.querySelectorAll(selector)]; for(let i=0;i<els.length;i++){ const r=els[i].getBoundingClientRect(); const mid=r.top + r.height/2; if(y < mid) return i; } return els.length; }
 
+  function speak(text){ if(!text) return; try{ const utter=new SpeechSynthesisUtterance(text); const zh=state.voices.find(v=>/zh|cmn/i.test(v.lang)); if(zh) utter.voice=zh; utter.rate=1; utter.pitch=1; utter.volume=1; window.speechSynthesis.speak(utter);}catch(e){} }
   function ensureAudio(){ if(!state.audio.ctx){ const AudioCtx=window.AudioContext||window.webkitAudioContext; if(AudioCtx) state.audio.ctx=new AudioCtx(); } return state.audio.ctx; }
   function tickClick(){ const ctx=state.audio.ctx; if(!ctx) return; const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.type='square'; osc.frequency.value=880; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.02); osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.03); }
 
@@ -248,6 +255,11 @@
         setTimeout(()=>{input.focus(); input.select();},0);
       }
 
+      // DnD: 行程卡可拖曳
+      card.setAttribute('draggable','true');
+      card.addEventListener('dragstart', e=>{ dnd.type='schedule'; dnd.scheduleId=s.id; card.classList.add('dragging'); if(e.dataTransfer) e.dataTransfer.effectAllowed='move'; });
+      card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); dnd.type=null; });
+
       list.appendChild(card);
     });
   }
@@ -302,6 +314,25 @@
           '<div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>'+
         '</div>';
 
+      // 單擊列：一般情況下選取；播放/暫停時也會切換到該項
+      row.addEventListener('click', e=>{
+        const isCtl=e.target.closest('button,select,input');
+        // 播放或暫停：即使點到控制也切換
+        const forceSwitch = !!(state.schedules.find(x=>x.id===state.selectedId)?.run.active);
+        if(isCtl && !forceSwitch) return;
+        s.items.forEach(x=> delete x.__selected);
+        it.__selected=true;
+        if(forceSwitch){
+          s.run.curIdx = idx;
+          s.run.curItemElapsedSec = 0;
+          s.run.scheduleElapsedSec = sumBefore(s.items, idx);
+          initTickerForItem(it);
+          if(!s.run.paused){ speak(it.prompt); }
+          scrollToRunningItem();
+        }
+        renderWorkspace(); renderSchedules();
+      });
+
       // 控制按鈕
       row.querySelector('[data-role="dup-item"]').addEventListener('click', e=>{
         e.stopPropagation();
@@ -322,6 +353,11 @@
       });
       row.querySelector('[data-role="freq"]').addEventListener('change', e=>{ it.freq=parseInt(e.target.value,10)||0; saveState(); });
       row.querySelector('[data-role="prompt"]').addEventListener('change', e=>{ it.prompt=e.target.value; saveState(); });
+
+      // DnD: 項目列可拖曳
+      row.setAttribute('draggable','true');
+      row.addEventListener('dragstart', e=>{ dnd.type='item'; dnd.scheduleId=s.id; dnd.itemId=it.id; row.classList.add('dragging'); if(e.dataTransfer) e.dataTransfer.effectAllowed='move'; });
+      row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); dnd.type=null; });
 
       wrap.appendChild(row);
     });
@@ -413,7 +449,19 @@
     qs('#btnPause').addEventListener('click', ()=> pauseRun());
     qs('#btnCancel').addEventListener('click', ()=> cancelRun());
 
-    // 播放或暫停時，單擊任何項目都直接切換（捕獲階段）
+    // DnD: 行程列表拖放
+    const scheduleList = qs('#scheduleList');
+    if(scheduleList){
+      scheduleList.addEventListener('dragover', (e)=>{ if(dnd.type==='schedule'){ e.preventDefault(); }});
+      scheduleList.addEventListener('drop', (e)=>{ if(dnd.type!=='schedule') return; e.preventDefault();
+        const to = indexFromY(scheduleList, '.schedule', e.clientY);
+        const from = state.schedules.findIndex(x=>x.id===dnd.scheduleId);
+        const adj = (to>from)? to-1 : to; // 移除後插入索引微調
+        moveInArray(state.schedules, from, adj);
+        renderSchedules(); saveState(); dnd.type=null; });
+    }
+
+    // 播放或暫停時，單擊任何項目都直接切換（捕獲階段，避免子元素阻擋）
     const itemsArea = qs('#itemsArea');
     if(itemsArea){
       itemsArea.addEventListener('click', (e)=>{
@@ -421,18 +469,28 @@
         if(!s.run.active) return; // 僅在播放或暫停期間處理
         const row = e.target.closest('.item'); if(!row) return;
         const idx = parseInt(row.dataset.idx,10); if(Number.isNaN(idx)) return;
-        // 切換至該項目
         s.items.forEach(x=> delete x.__selected);
         const it = s.items[idx]; if(!it) return;
         it.__selected = true;
-        s.run.curIdx = idx;
-        s.run.curItemElapsedSec = 0;
-        s.run.scheduleElapsedSec = sumBefore(s.items, idx);
-        initTickerForItem(it);
-        if(!s.run.paused){ speak(it.prompt); }
-        scrollToRunningItem();
-        renderWorkspace(); renderSchedules();
+        s.run.curIdx = idx; s.run.curItemElapsedSec = 0; s.run.scheduleElapsedSec = sumBefore(s.items, idx);
+        initTickerForItem(it); if(!s.run.paused){ speak(it.prompt); }
+        scrollToRunningItem(); renderWorkspace(); renderSchedules();
       }, true);
+
+      // DnD: 項目拖放（同一行程內）
+      itemsArea.addEventListener('dragover', (e)=>{ if(dnd.type==='item'){ e.preventDefault(); }});
+      itemsArea.addEventListener('drop', (e)=>{ if(dnd.type!=='item') return; e.preventDefault();
+        const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
+        const to = indexFromY(itemsArea, '.item', e.clientY);
+        const from = s.items.findIndex(it=>it.id===dnd.itemId);
+        const adj = (to>from)? to-1: to;
+        const curId = (s.items[s.run.curIdx]||{}).id;
+        moveInArray(s.items, from, adj);
+        if(s.run.active){
+          s.run.curIdx = s.items.findIndex(it=>it.id===curId);
+          s.run.scheduleElapsedSec = sumBefore(s.items, s.run.curIdx) + Math.min(s.run.curItemElapsedSec, (s.items[s.run.curIdx]&&s.items[s.run.curIdx].sec)||0);
+        }
+        renderWorkspace(); renderSchedules(); saveState(); dnd.type=null; });
     }
 
     if('speechSynthesis' in window){ const loadVoices=()=>{ state.voices=speechSynthesis.getVoices(); }; speechSynthesis.onvoiceschanged=loadVoices; loadVoices(); }
@@ -452,6 +510,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 
