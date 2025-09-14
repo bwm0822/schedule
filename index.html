@@ -27,9 +27,8 @@
     .schedule{
       border:1px solid var(--border);
       border-radius:.5rem;
-      /* 重要：不要裁切，以免 dropdown 被吃掉 */
-      overflow:visible;
-      position:relative; /* 供 z-index 生效 */
+      overflow:visible;          /* 重要：避免 dropdown 被裁切 */
+      position:relative;         /* 供 z-index 生效 */
       margin-bottom:.6rem;
       background:#2a2f33;
       cursor:pointer;
@@ -160,7 +159,7 @@
   const parseTimeInput = (txt)=>{
     txt = (txt||'').trim();
     if(!txt) return 0;
-    if(/^([0-9]+)$/.test(txt)) return parseInt(txt,10); // 以秒（避免在替換器中出現 \\d）
+    if(/^\d+$/.test(txt)) return parseInt(txt,10); // 以秒
     if(/^:/.test(txt)) return 0;
     const parts = txt.split(':');
     if(parts.length===2){
@@ -216,23 +215,18 @@
       const remaining = total - s.run.scheduleElapsedSec;
       const p = total? clamp(s.run.scheduleElapsedSec/total, 0, 1) : 0;
 
+      const titleHtml = s.editing
+        ? '<input class="form-control form-control-sm" value="'+escapeHtml(s.title)+'" data-role="title-input"/>'
+        : '<div class="title-text">'+escapeHtml(s.title)+'</div>';
+
       const card = document.createElement('div');
       card.className = 'schedule clicky' + (s.selected?' selected':'') + (s.editing?' editing':'');
       card.dataset.id = s.id;
       card.innerHTML = `
         <div class="sched-grid position-relative">
           <div class="sched-overlay left cover-blue" style="--p:${p}"></div>
-
-          <div class="sched-title">
-            ${s.editing
-              ? `<input class=\"form-control form-control-sm\" value=\"${escapeHtml(s.title)}\" data-role=\"title-input\"/>`
-              : `<div class=\"title-text\">${escapeHtml(s.title)}</div>`}
-          </div>
-
-          <div class="sched-time">
-            <div class="time">${s.run.active || s.run.paused ? fmtMMSS(remaining) : '00:00'}</div>
-          </div>
-
+          <div class="sched-title">${titleHtml}</div>
+          <div class="sched-time"><div class="time">${(s.run.active || s.run.paused) ? fmtMMSS(remaining) : '00:00'}</div></div>
           <div class="sched-actions">
             <div class="dropdown">
               <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">⚙</button>
@@ -334,19 +328,19 @@
       row.className = 'item' + (it.__selected?' selected':'') + (isRunning?' running':'');
       row.dataset.id = it.id; row.dataset.idx = idx;
       row.innerHTML = `
-        <div class=\"cover-yellow position-absolute top-0 start-0 w-100 h-100\" style=\"--p:${p}\"></div>
-        <div class=\"item-grid\">
-          <div class=\"cell center\"><button class=\"btn btn-sm btn-outline-light\" data-role=\"dup-item\">＋</button></div>
-          <div class=\"cell\"><input type=\"text\" class=\"form-control form-control-sm\" data-role=\"time\" value=\"${fmtMMSS(it.sec)}\" placeholder=\"mm:ss\"></div>
-          <div class=\"cell\"><div class=\"freq-wrap\">
-            <select class=\"form-select form-select-sm w-auto\" data-role=\"freq\">
-              <option ${it.freq==0?'selected':''} value=\"0\">0</option>
-              <option ${it.freq==60?'selected':''} value=\"60\">60</option>
-              <option ${it.freq==80?'selected':''} value=\"80\">80</option>
+        <div class="cover-yellow position-absolute top-0 start-0 w-100 h-100" style="--p:${p}"></div>
+        <div class="item-grid">
+          <div class="cell center"><button class="btn btn-sm btn-outline-light" data-role="dup-item">＋</button></div>
+          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="time" value="${fmtMMSS(it.sec)}" placeholder="mm:ss"></div>
+          <div class="cell"><div class="freq-wrap">
+            <select class="form-select form-select-sm w-auto" data-role="freq">
+              <option ${it.freq==0?'selected':''} value="0">0</option>
+              <option ${it.freq==60?'selected':''} value="60">60</option>
+              <option ${it.freq==80?'selected':''} value="80">80</option>
             </select><span>/分</span>
           </div></div>
-          <div class=\"cell\"><input type=\"text\" class=\"form-control form-control-sm\" data-role=\"prompt\" value=\"${escapeHtml(it.prompt||'')}\" placeholder=\"提示文字\"></div>
-          <div class=\"cell center\"><button class=\"btn btn-sm btn-outline-danger\" data-role=\"del-item\">🗑</button></div>
+          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="prompt" value="${escapeHtml(it.prompt||'')}" placeholder="提示文字"></div>
+          <div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>
         </div>`;
 
       row.addEventListener('click', (e)=>{
@@ -370,10 +364,10 @@
         renderWorkspace();
       });
 
+      // 刪除項目（刪到 0 也不會自動補空項目）
       row.querySelector('[data-role="del-item"]').addEventListener('click', (e)=>{
         e.stopPropagation();
-        if(s.items.length===1){ s.items[0].sec=0; s.items[0].prompt=''; s.items[0].freq=0; }
-        else { s.items.splice(idx,1); }
+        s.items.splice(idx,1);
         if(s.run.active){ stopRun(s); }
         renderWorkspace();
       });
@@ -539,6 +533,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
