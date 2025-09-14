@@ -134,6 +134,41 @@
   };
   let idSeq=1; const newId=()=> (idSeq++).toString();
 
+  // ---- 儲存／載入（localStorage）----
+  const STORAGE_KEY='schedule_timer_v1';
+  function saveState(){
+    try{
+      const data={
+        schedules: state.schedules.map(s=>({
+          id:s.id,
+          title:s.title,
+          items: s.items.map(it=>({id:it.id,sec:it.sec||0,freq:it.freq||0,prompt:it.prompt||''}))
+        })),
+        selectedId: state.selectedId
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }catch(e){}
+  }
+  function loadState(){
+    try{
+      const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return false;
+      const data=JSON.parse(raw); if(!data||!Array.isArray(data.schedules)) return false;
+      state.schedules = data.schedules.map(s=>({
+        id: String(s.id),
+        title: s.title||'未命名行程',
+        selected: false,
+        editing: false,
+        items: (Array.isArray(s.items)? s.items:[]).map(it=>({ id:String(it.id), sec:Number(it.sec)||0, freq:Number(it.freq)||0, prompt:String(it.prompt||'') })),
+        run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}
+      }));
+      state.selectedId = data.selectedId || null;
+      if(!state.schedules.find(x=>x.id===state.selectedId)) state.selectedId=null;
+      const ids = state.schedules.flatMap(s=>[s.id, ...s.items.map(it=>it.id)]).map(x=>parseInt(x,10)).filter(n=>!isNaN(n));
+      idSeq = Math.max(1, (ids.length? Math.max(...ids)+1 : 1));
+      return true;
+    }catch(e){ return false; }
+  }
+
   // ---- 工具 ----
   const qs=(sel,el=document)=>el.querySelector(sel);
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -214,11 +249,42 @@
     });
   }
 
-  function selectSchedule(id){ state.schedules.forEach(s=> s.selected=(s.id===id)); state.selectedId=id||null; renderSchedules(); renderWorkspace(); }
+  function selectSchedule(id){
+    state.schedules.forEach(s=> s.selected=(s.id===id));
+    state.selectedId = id || null;
+    renderSchedules();
+    renderWorkspace();
+    saveState();
+  }
   function toggleEditSchedule(id,on){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.editing=on; renderSchedules(); }
-  function finishEditSchedule(id,title){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.title=(title||'').trim()||'未命名行程'; s.editing=false; renderSchedules(); }
-  function duplicateSchedule(id){ const s=state.schedules.find(x=>x.id===id); if(!s) return; const copy=JSON.parse(JSON.stringify(s)); copy.id=newId(); copy.title=s.title+' (副本)'; copy.selected=false; copy.editing=false; copy.items.forEach(it=> it.id=newId()); copy.run={active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}; state.schedules.push(copy); renderSchedules(); }
-  function deleteSchedule(id){ const idx=state.schedules.findIndex(x=>x.id===id); if(idx<0) return; const wasSelected=state.schedules[idx].selected; state.schedules.splice(idx,1); if(wasSelected) state.selectedId=null; renderSchedules(); renderWorkspace(); }
+  function finishEditSchedule(id,title){
+    const s = state.schedules.find(x=>x.id===id); if(!s) return;
+    s.title = (title||'').trim()||'未命名行程';
+    s.editing = false;
+    renderSchedules();
+    saveState();
+  }
+  function duplicateSchedule(id){
+    const s = state.schedules.find(x=>x.id===id); if(!s) return;
+    const copy = JSON.parse(JSON.stringify(s));
+    copy.id = newId();
+    copy.title = s.title + ' (副本)';
+    copy.selected = false; copy.editing = false;
+    copy.items.forEach(it=> it.id = newId());
+    copy.run = {active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0};
+    state.schedules.push(copy);
+    renderSchedules();
+    saveState();
+  }
+  function deleteSchedule(id){
+    const idx = state.schedules.findIndex(x=>x.id===id); if(idx<0) return;
+    const wasSelected = state.schedules[idx].selected;
+    state.schedules.splice(idx,1);
+    if(wasSelected) state.selectedId = null;
+    renderSchedules();
+    renderWorkspace();
+    saveState();
+  }
 
   // ---- 渲染：右側工作區 ----
   function renderWorkspace(){
@@ -273,7 +339,9 @@
       // 複製（插在該項目之後，不選取）
       row.querySelector('[data-role="dup-item"]').addEventListener('click', e=>{
         e.stopPropagation();
-        const clone={...it, id:newId()}; delete clone.__selected; s.items.splice(idx+1,0,clone); renderWorkspace();
+        const clone={...it, id:newId()}; delete clone.__selected; s.items.splice(idx+1,0,clone);
+        renderWorkspace();
+        saveState();
       });
 
       // 刪除（刪到 0 也不補空白）
@@ -282,13 +350,16 @@
         s.items.splice(idx,1);
         if(s.run.active){ stopRun(s); }
         renderWorkspace();
+        saveState();
       });
 
       row.querySelector('[data-role="time"]').addEventListener('change', e=>{
-        const secs=parseTimeInput(e.target.value); it.sec=secs; e.target.value=fmtMMSS(it.sec); renderWorkspace(); renderSchedules();
+        const secs=parseTimeInput(e.target.value); it.sec=secs; e.target.value=fmtMMSS(it.sec);
+        renderWorkspace(); renderSchedules();
+        saveState();
       });
-      row.querySelector('[data-role="freq"]').addEventListener('change', e=>{ it.freq=parseInt(e.target.value,10)||0; });
-      row.querySelector('[data-role="prompt"]').addEventListener('change', e=>{ it.prompt=e.target.value; });
+      row.querySelector('[data-role="freq"]').addEventListener('change', e=>{ it.freq=parseInt(e.target.value,10)||0; saveState(); });
+      row.querySelector('[data-role="prompt"]').addEventListener('change', e=>{ it.prompt=e.target.value; saveState(); });
 
       wrap.appendChild(row);
     });
@@ -338,12 +409,17 @@
   function hookEvents(){
     qs('#btnAddSchedule').addEventListener('click', ()=>{
       const s={ id:newId(), title:'新行程', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0} };
-      state.schedules.push(s); renderSchedules();
+      state.schedules.push(s);
+      renderSchedules();
+      saveState();
     });
 
     qs('#btnAddItem').addEventListener('click', ()=>{
       const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-      s.items.push({id:newId(), sec:0, freq:0, prompt:''}); renderWorkspace(); const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight;
+      s.items.push({id:newId(), sec:0, freq:0, prompt:''});
+      renderWorkspace();
+      const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight;
+      saveState();
     });
 
     qs('#btnPlay').addEventListener('click', ()=>{ if(!state.selectedId) return; ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume(); startRun(); scrollToRunningItem(); });
@@ -358,12 +434,15 @@
   document.addEventListener('hide.bs.dropdown', e=>{ const card=e.target.closest('.schedule'); if(card) card.classList.remove('dropdown-open'); });
 
   // ---- 啟動 ----
-  createSample();
-  renderSchedules();
-  renderWorkspace();
-  hookEvents();
+  (function init(){
+    if(!loadState()) createSample();
+    renderSchedules();
+    renderWorkspace();
+    hookEvents();
+  })();
   </script>
 </body>
 </html>
+
 
 
