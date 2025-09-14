@@ -93,7 +93,10 @@
 
     /* 保險：提高 dropdown 本身層級 */
     .schedule .dropdown-menu{ z-index:3100; }
-  </style>
+    
+    /* 讓覆蓋條不攔截按鈕點擊（避免 🗑、＋ 按鈕失效） */
+    .cover-blue, .cover-yellow{ pointer-events:none; }
+</style>
 </head>
 <body>
   <div class="app">
@@ -587,6 +590,7 @@
   </script>
 </body>
 </html>
+
 
 
 
