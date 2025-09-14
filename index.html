@@ -70,9 +70,8 @@
     .item.running{box-shadow:0 0 0 2px rgba(255,193,7,.35) inset}
 
     .cell input[type="text"]{background:transparent;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem}
-    .cell select{background-color:#2a2f33;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem;/* 避免文字與下拉箭頭重疊 */padding-right:2rem;background-position:right .5rem center;background-repeat:no-repeat;min-width:84px}
+    .cell select{background-color:#2a2f33;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem;padding-right:2rem;background-position:right .5rem center;background-repeat:no-repeat;min-width:84px}
     .cell select.form-select-sm{padding-right:1.75rem}
-    .cell select option{background-color:#2a2f33;color:#f8f9fa}
     .cell select option{background-color:#2a2f33;color:#f8f9fa}
     .cell input[type="text"]::placeholder{color:#6c757d}
     .freq-wrap{display:flex;gap:.4rem;align-items:center}
@@ -185,7 +184,7 @@
   function ensureAudio(){ if(!state.audio.ctx){ const AudioCtx=window.AudioContext||window.webkitAudioContext; if(AudioCtx) state.audio.ctx=new AudioCtx(); } return state.audio.ctx; }
   function tickClick(){ const ctx=state.audio.ctx; if(!ctx) return; const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.type='square'; osc.frequency.value=880; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.02); osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.03); }
 
-  // ---- 初始範例行程（不預放項目） ----
+  // ---- 初始行程（不預放項目） ----
   function createSample(){
     const s1={id:newId(), title:'早晨專注', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
     const s2={id:newId(), title:'番茄鐘 25-5', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
@@ -255,40 +254,15 @@
 
   function selectSchedule(id){
     state.schedules.forEach(s=> s.selected=(s.id===id));
-    state.selectedId = id || null;
+    state.selectedId=id||null;
     renderSchedules();
     renderWorkspace();
     saveState();
   }
   function toggleEditSchedule(id,on){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.editing=on; renderSchedules(); }
-  function finishEditSchedule(id,title){
-    const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    s.title = (title||'').trim()||'未命名行程';
-    s.editing = false;
-    renderSchedules();
-    saveState();
-  }
-  function duplicateSchedule(id){
-    const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    const copy = JSON.parse(JSON.stringify(s));
-    copy.id = newId();
-    copy.title = s.title + ' (副本)';
-    copy.selected = false; copy.editing = false;
-    copy.items.forEach(it=> it.id = newId());
-    copy.run = {active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0};
-    state.schedules.push(copy);
-    renderSchedules();
-    saveState();
-  }
-  function deleteSchedule(id){
-    const idx = state.schedules.findIndex(x=>x.id===id); if(idx<0) return;
-    const wasSelected = state.schedules[idx].selected;
-    state.schedules.splice(idx,1);
-    if(wasSelected) state.selectedId = null;
-    renderSchedules();
-    renderWorkspace();
-    saveState();
-  }
+  function finishEditSchedule(id,title){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.title=(title||'').trim()||'未命名行程'; s.editing=false; renderSchedules(); saveState(); }
+  function duplicateSchedule(id){ const s=state.schedules.find(x=>x.id===id); if(!s) return; const copy=JSON.parse(JSON.stringify(s)); copy.id=newId(); copy.title=s.title+' (副本)'; copy.selected=false; copy.editing=false; copy.items.forEach(it=> it.id=newId()); copy.run={active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}; state.schedules.push(copy); renderSchedules(); saveState(); }
+  function deleteSchedule(id){ const idx=state.schedules.findIndex(x=>x.id===id); if(idx<0) return; const wasSelected=state.schedules[idx].selected; state.schedules.splice(idx,1); if(wasSelected) state.selectedId=null; renderSchedules(); renderWorkspace(); saveState(); }
 
   // ---- 渲染：右側工作區 ----
   function renderWorkspace(){
@@ -328,69 +302,23 @@
           '<div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>'+
         '</div>';
 
-      row.addEventListener('click', e=>{
-        const isCtl = e.target.closest('button,select,input');
-        if(isCtl) return;
-        // 單選：只選取被點到的這一項
-        s.items.forEach(x=> delete x.__selected);
-        it.__selected = true;
-
-        // 播放或暫停時：立刻切到此項目開始（播放中也直接切換）
-        if(s.run.active){
-          s.run.curIdx = idx;
-          s.run.curItemElapsedSec = 0;
-          s.run.scheduleElapsedSec = sumBefore(s.items, idx);
-          initTickerForItem(s.items[idx]);
-          if(!s.run.paused){
-            speak(it.prompt);
-          }
-          scrollToRunningItem();
-        }
-        renderWorkspace();
-        renderSchedules();
-      });
-
-      // 播放中若要立刻從該項目開始，使用「雙擊」
-      row.addEventListener('dblclick', e=>{
-        const isCtl = e.target.closest('button,select,input');
-        if(isCtl) return;
-        // 單選標記
-        s.items.forEach(x=> delete x.__selected);
-        it.__selected = true;
-        // 無論播放或暫停，雙擊都會切到該項目
-        if(s.run.active){
-          s.run.curIdx = idx;
-          s.run.curItemElapsedSec = 0;
-          s.run.scheduleElapsedSec = sumBefore(s.items, idx);
-          initTickerForItem(s.items[idx]);
-          if(!s.run.paused){ speak(it.prompt); }
-          scrollToRunningItem();
-          renderWorkspace();
-          renderSchedules();
-        }
-      });
-
-      // 複製（插在該項目之後，不選取）
+      // 控制按鈕
       row.querySelector('[data-role="dup-item"]').addEventListener('click', e=>{
         e.stopPropagation();
         const clone={...it, id:newId()}; delete clone.__selected; s.items.splice(idx+1,0,clone);
-        renderWorkspace();
-        saveState();
+        renderWorkspace(); saveState();
       });
-
-      // 刪除（刪到 0 也不補空白）
       row.querySelector('[data-role="del-item"]').addEventListener('click', e=>{
         e.stopPropagation();
         s.items.splice(idx,1);
         if(s.run.active){ stopRun(s); }
-        renderWorkspace();
-        saveState();
+        renderWorkspace(); saveState();
       });
 
+      // 欄位
       row.querySelector('[data-role="time"]').addEventListener('change', e=>{
         const secs=parseTimeInput(e.target.value); it.sec=secs; e.target.value=fmtMMSS(it.sec);
-        renderWorkspace(); renderSchedules();
-        saveState();
+        renderWorkspace(); renderSchedules(); saveState();
       });
       row.querySelector('[data-role="freq"]').addEventListener('change', e=>{ it.freq=parseInt(e.target.value,10)||0; saveState(); });
       row.querySelector('[data-role="prompt"]').addEventListener('change', e=>{ it.prompt=e.target.value; saveState(); });
@@ -473,22 +401,39 @@
   function hookEvents(){
     qs('#btnAddSchedule').addEventListener('click', ()=>{
       const s={ id:newId(), title:'新行程', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0} };
-      state.schedules.push(s);
-      renderSchedules();
-      saveState();
+      state.schedules.push(s); renderSchedules(); saveState();
     });
 
     qs('#btnAddItem').addEventListener('click', ()=>{
       const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-      s.items.push({id:newId(), sec:0, freq:0, prompt:''});
-      renderWorkspace();
-      const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight;
-      saveState();
+      s.items.push({id:newId(), sec:0, freq:0, prompt:''}); renderWorkspace(); const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight; saveState();
     });
 
     qs('#btnPlay').addEventListener('click', ()=>{ if(!state.selectedId) return; ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume(); startRun(); scrollToRunningItem(); });
     qs('#btnPause').addEventListener('click', ()=> pauseRun());
     qs('#btnCancel').addEventListener('click', ()=> cancelRun());
+
+    // 播放或暫停時，單擊任何項目都直接切換（捕獲階段）
+    const itemsArea = qs('#itemsArea');
+    if(itemsArea){
+      itemsArea.addEventListener('click', (e)=>{
+        const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
+        if(!s.run.active) return; // 僅在播放或暫停期間處理
+        const row = e.target.closest('.item'); if(!row) return;
+        const idx = parseInt(row.dataset.idx,10); if(Number.isNaN(idx)) return;
+        // 切換至該項目
+        s.items.forEach(x=> delete x.__selected);
+        const it = s.items[idx]; if(!it) return;
+        it.__selected = true;
+        s.run.curIdx = idx;
+        s.run.curItemElapsedSec = 0;
+        s.run.scheduleElapsedSec = sumBefore(s.items, idx);
+        initTickerForItem(it);
+        if(!s.run.paused){ speak(it.prompt); }
+        scrollToRunningItem();
+        renderWorkspace(); renderSchedules();
+      }, true);
+    }
 
     if('speechSynthesis' in window){ const loadVoices=()=>{ state.voices=speechSynthesis.getVoices(); }; speechSynthesis.onvoiceschanged=loadVoices; loadVoices(); }
   }
@@ -507,6 +452,7 @@
   </script>
 </body>
 </html>
+
 
 
 
