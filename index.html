@@ -188,7 +188,60 @@
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
   const fmtMMSS=(sec)=>{ sec=Math.max(0,Math.round(sec)); const m=Math.floor(sec/60), s=sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; };
   const parseTimeInput=(txt)=>{ txt=(txt||'').trim(); if(!txt) return 0; if(/^\d+$/.test(txt)) return parseInt(txt,10); if(/^:/.test(txt)) return 0; const parts=txt.split(':'); if(parts.length===2){ let m=parseInt(parts[0]||'0',10)||0; let s=parseInt(parts[1]||'0',10)||0; m+=Math.floor(s/60); s=s%60; return m*60+s; } return 0; };
-  const escapeHtml=(s)=> String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  const escapeHtml=(s)=> String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","\">":"&quot;","'":"&#39;"}[c]));
+
+  // ---- 音訊（iOS 解鎖）----
+  function ensureAudio(){
+    if(!state.audio.ctx){
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if(AudioCtx) state.audio.ctx = new AudioCtx({ latencyHint:'interactive' });
+    }
+    return state.audio.ctx;
+  }
+  function attemptAudioUnlock(){
+    const ctx = ensureAudio(); if(!ctx) return;
+    if(ctx.state !== 'running'){
+      ctx.resume().catch(()=>{});
+    }
+    // 播放一個 0 長度 buffer 以解鎖 iOS
+    try{
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
+    }catch(e){}
+  }
+  function installAudioUnlock(){
+    const onceUnlock = ()=>{ attemptAudioUnlock();
+      window.removeEventListener('touchstart', onceUnlock, true);
+      window.removeEventListener('touchend', onceUnlock, true);
+      window.removeEventListener('pointerdown', onceUnlock, true);
+      window.removeEventListener('keydown', onceUnlock, true);
+    };
+    window.addEventListener('touchstart', onceUnlock, true);
+    window.addEventListener('touchend', onceUnlock, true);
+    window.addEventListener('pointerdown', onceUnlock, true);
+    window.addEventListener('keydown', onceUnlock, true);
+    document.addEventListener('visibilitychange', ()=>{
+      const ctx = state.audio.ctx;
+      if(document.visibilityState==='visible' && ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
+    });
+  }
+
+  // 更穩定的滴答聲（iOS 友善）
+  function tickClick(){
+    const ctx = state.audio.ctx; if(!ctx) return;
+    const t = ctx.currentTime + 0.01;          // 微提前排程，避免被吃音
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1000;                // 稍微高一點比較清晰
+    gain.gain.setValueAtTime(0.00001, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.07);                        // 稍長，iOS 穩定
+  }
 
   // ---- 拖曳 DnD ----
   const dnd = { type:null, scheduleId:null, itemId:null };
@@ -196,10 +249,8 @@
   function indexFromY(container, selector, y){ const els=[...container.querySelectorAll(selector)]; for(let i=0;i<els.length;i++){ const r=els[i].getBoundingClientRect(); const mid=r.top + r.height/2; if(y < mid) return i; } return els.length; }
 
   function speak(text){ if(!text) return; try{ const utter=new SpeechSynthesisUtterance(text); const zh=state.voices.find(v=>/zh|cmn/i.test(v.lang)); if(zh) utter.voice=zh; utter.rate=1; utter.pitch=1; utter.volume=1; window.speechSynthesis.speak(utter);}catch(e){} }
-  function ensureAudio(){ if(!state.audio.ctx){ const AudioCtx=window.AudioContext||window.webkitAudioContext; if(AudioCtx) state.audio.ctx=new AudioCtx(); } return state.audio.ctx; }
-  function tickClick(){ const ctx=state.audio.ctx; if(!ctx) return; const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.type='square'; osc.frequency.value=880; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.02); osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.03); }
 
-  // ---- 初始行程（不預放項目） ----
+  // ---- 初始行程（不預放項目）----
   function createSample(){
     const s1={id:newId(), title:'早晨專注', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
     const s2={id:newId(), title:'番茄鐘 25-5', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
@@ -326,7 +377,6 @@
       // 單擊列：一般情況下選取；播放/暫停時也會切換到該項
       row.addEventListener('click', e=>{
         const isCtl=e.target.closest('button,select,input');
-        // 播放或暫停：即使點到控制也切換
         const sCur = state.schedules.find(x=>x.id===state.selectedId);
         const forceSwitch = !!(sCur && sCur.run.active);
         if(isCtl && !forceSwitch) return;
@@ -390,19 +440,17 @@
     let startIdx=s.items.findIndex(x=>x.__selected); if(startIdx<0) startIdx=0; if(s.run.active && !s.run.paused) return;
 
     if(!s.run.active){
-      // 行程開始：發音「<標題> 開始」
       speak(s.title + ' 開始');
       s.run.active=true; s.run.paused=false; s.run.curIdx=startIdx; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=sumBefore(s.items,startIdx);
-      // 進入第一個項目時朗讀項目提示
       speak(s.items[startIdx].prompt);
       initTickerForItem(s.items[startIdx]);
     } else {
-      // 從暫停恢復：發音「繼續」
       s.run.paused=false;
       speak('繼續');
       initTickerForItem(s.items[s.run.curIdx]);
     }
-    ensureAudio();
+    ensureAudio(); attemptAudioUnlock();
+    if(state.audio.ctx && state.audio.ctx.state==='suspended'){ state.audio.ctx.resume().catch(()=>{}); }
     lastTick=performance.now();
     cancelAnimationFrame(rafId);
     rafId=requestAnimationFrame(loop);
@@ -412,7 +460,6 @@
   function pauseRun(){
     const s=state.schedules.find(x=>x.id===state.selectedId); if(!s||!s.run.active) return;
     s.run.paused=true;
-    // 行程暫停：發音「暫停」
     speak('暫停');
     stopTicker();
     cancelAnimationFrame(rafId);
@@ -439,10 +486,8 @@
     const dt=Math.max(0,(ts-lastTick)/1000); lastTick=ts;
     const item=s.items[s.run.curIdx]; s.run.curItemElapsedSec+=dt; s.run.scheduleElapsedSec+=dt; advanceTicker();
     if(item.sec>0 && s.run.curItemElapsedSec>=item.sec){
-      // 播放此項目結束：取消該項目的選取狀態
       if(item.__selected){ delete item.__selected; }
       s.run.curIdx++;
-      // 若已是最後一個項目，停止並清掉所有選取並播報「<標題> 結束」
       if(s.run.curIdx>=s.items.length){
         s.items.forEach(x=> delete x.__selected);
         speak(s.title + ' 結束');
@@ -478,7 +523,7 @@
       s.items.push({id:newId(), sec:0, freq:0, prompt:''}); renderWorkspace(); const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight; saveState();
     });
 
-    qs('#btnPlay').addEventListener('click', ()=>{ if(!state.selectedId) return; ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume(); startRun(); scrollToRunningItem(); });
+    qs('#btnPlay').addEventListener('click', ()=>{ if(!state.selectedId) return; ensureAudio(); attemptAudioUnlock(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume().catch(()=>{}); startRun(); scrollToRunningItem(); });
     qs('#btnPause').addEventListener('click', ()=> pauseRun());
     qs('#btnCancel').addEventListener('click', ()=> cancelRun());
 
@@ -489,7 +534,7 @@
       scheduleList.addEventListener('drop', (e)=>{ if(dnd.type!=='schedule') return; e.preventDefault();
         const to = indexFromY(scheduleList, '.schedule', e.clientY);
         const from = state.schedules.findIndex(x=>x.id===dnd.scheduleId);
-        const adj = (to>from)? to-1 : to; // 移除後插入索引微調
+        const adj = (to>from)? to-1 : to;
         moveInArray(state.schedules, from, adj);
         renderSchedules(); saveState(); dnd.type=null; });
     }
@@ -499,7 +544,7 @@
     if(itemsArea){
       itemsArea.addEventListener('click', (e)=>{
         const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-        if(!s.run.active) return; // 僅在播放或暫停期間處理
+        if(!s.run.active) return;
         const row = e.target.closest('.item'); if(!row) return;
         const idx = parseInt(row.dataset.idx,10); if(Number.isNaN(idx)) return;
         s.items.forEach(x=> delete x.__selected);
@@ -527,6 +572,9 @@
     }
 
     if('speechSynthesis' in window){ const loadVoices=()=>{ state.voices=speechSynthesis.getVoices(); }; speechSynthesis.onvoiceschanged=loadVoices; loadVoices(); }
+
+    // 安裝 iOS 音訊解鎖
+    installAudioUnlock();
   }
 
   // Dropdown 展開/關閉時提高卡片層級
@@ -543,6 +591,7 @@
   </script>
 </body>
 </html>
+
 
 
 
