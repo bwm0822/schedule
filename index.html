@@ -17,81 +17,69 @@
     body{background:#212529;color:#f8f9fa;overflow:hidden}
     .app{display:flex;height:var(--panel-h)}
     .left{width:var(--left-w);border-right:1px solid var(--border);display:flex;flex-direction:column}
-    .right{width:var(--right-w);display:flex;flex-direction:column}
+    .right{width:var(--right-w);display:flex;flex-direction:column;min-height:0}
 
     /* 左側：控制區 + 行程區 */
     .controls{padding:.75rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
     .schedule-list{flex:1;overflow:auto;padding:.5rem}
 
     /* 行程卡片 */
-    .schedule{
-      border:1px solid var(--border);
-      border-radius:.5rem;
-      overflow:visible;          /* 重要：避免 dropdown 被裁切 */
-      position:relative;         /* 供 z-index 生效 */
-      margin-bottom:.6rem;
-      background:#2a2f33;
-      cursor:pointer;
-      transition:transform .08s ease;
-    }
+    .schedule{border:1px solid var(--border);border-radius:.5rem;overflow:visible;position:relative;margin-bottom:.6rem;background:#2a2f33;cursor:pointer;transition:transform .08s ease}
     .schedule:hover{transform:translateY(-1px)}
-    .schedule.selected{outline:2px solid rgba(13,110,253,.6);}
+    .schedule.selected{outline:2px solid rgba(13,110,253,.6)}
     .schedule.editing{cursor:text}
-    .schedule.dropdown-open{ z-index:3000; }
+    .schedule.dropdown-open{z-index:3000}
 
     .sched-grid{display:grid;grid-template-rows:1fr 1fr;grid-template-columns:4fr 1fr;min-height:96px}
     .sched-title{grid-column:1/3;grid-row:1;display:flex;align-items:center;padding:.5rem .75rem;position:relative}
     .sched-title .title-text{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
     .sched-title input{width:100%;background:transparent;border:1px dashed var(--border);color:#fff;border-radius:.25rem;padding:.25rem .5rem}
 
-    .sched-time{grid-column:1;grid-row:2;display:flex;align-items:center;padding:.5rem .75rem;border-top:1px solid var(--border);}
+    .sched-time{grid-column:1;grid-row:2;display:flex;align-items:center;padding:.5rem .75rem;border-top:1px solid var(--border)}
     .sched-time .time{font-variant-numeric:tabular-nums;font-size:1.05rem}
     .sched-actions{grid-column:2;grid-row:2;border-left:1px solid var(--border);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative}
 
-    /* 進度覆蓋（行程藍色）—覆蓋標題+時間（左側區域） */
+    /* 覆蓋條 */
     .sched-overlay{position:absolute;inset:0;pointer-events:none;border-radius:inherit}
     .sched-overlay.left{grid-column:1;grid-row:1/3}
-
-    /* 背景漸層做覆蓋條 */
     .cover-blue{background:linear-gradient(90deg,var(--blue-overlay) calc(var(--p,0)*100%),transparent 0);border-radius:inherit;pointer-events:none}
     .cover-yellow{background:linear-gradient(90deg,var(--yellow-overlay) calc(var(--p,0)*100%),transparent 0);border-radius:inherit;pointer-events:none}
 
     /* 右側工作區 */
-    .workspace{flex:1;display:flex;flex-direction:column}
+    .workspace{flex:1;display:flex;flex-direction:column;min-height:0}
     .ws-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#adb5bd}
-    .ws-timebar{border-bottom:1px solid var(--border);}
+    .ws-timebar{border-bottom:1px solid var(--border)}
     .time-control{display:grid;grid-template-columns:1fr 1px 1fr;align-items:stretch}
     .time-remaining{position:relative;padding:1rem}
     .time-remaining .label{font-size:.9rem;color:#adb5bd;margin-bottom:.25rem}
     .time-remaining .value{font-variant-numeric:tabular-nums;font-size:1.6rem;font-weight:700}
-    .divider-v{background:var(--border);}
+    .divider-v{background:var(--border)}
     .play-area{display:flex;align-items:center;gap:.5rem;justify-content:center}
     .btn-icon{min-width:56px}
 
     /* 項目區 */
-    .items{flex:1;overflow:auto;padding:.75rem}
+    #wsArea{display:flex;flex-direction:column;min-height:0}
+    .items{flex:1;overflow:auto;padding:.75rem;min-height:0}
     .item{border:1px solid var(--border);border-radius:.5rem;overflow:hidden;margin-bottom:.5rem;position:relative}
     .item-grid{display:grid;grid-template-columns:60px 108px 160px 1fr 60px;align-items:stretch}
-    .item-grid > div{border-right:1px solid var(--border);display:flex;align-items:center}
-    .item-grid > div:last-child{border-right:none}
+    .item-grid>div{border-right:1px solid var(--border);display:flex;align-items:center}
+    .item-grid>div:last-child{border-right:none}
     .cell{padding:.5rem}
     .cell.center{justify-content:center}
     .item.selected{outline:2px solid rgba(255,193,7,.5)}
     .item.running{box-shadow:0 0 0 2px rgba(255,193,7,.35) inset}
 
-    .cell input[type="text"], .cell select{background:transparent;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem}
+    .cell input[type="text"],.cell select{background:transparent;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem}
     .cell input[type="text"]::placeholder{color:#6c757d}
     .freq-wrap{display:flex;gap:.4rem;align-items:center}
 
     .items-add{display:flex;justify-content:center;margin:.75rem 0}
     .items-add .btn{width:100%;max-width:360px}
 
-    /* 可點選效果 */
     .clicky{transition:transform .08s ease}
     .clicky:active{transform:scale(.98)}
 
-    /* 保險：提高 dropdown 本身層級 */
-    .schedule .dropdown-menu{ z-index:3100; }
+    .schedule .dropdown-menu{z-index:3100}
   </style>
 </head>
 <body>
@@ -109,18 +97,15 @@
     <section class="right">
       <div class="workspace">
         <div class="ws-empty" id="wsEmpty">未選取行程</div>
-
         <div id="wsArea" class="d-none">
           <div class="ws-timebar p-2">
             <div class="time-control">
-              <!-- 剩餘時間 + 黃色覆蓋條 -->
               <div class="time-remaining" id="wsRemainBox">
                 <div class="cover-yellow position-absolute top-0 start-0 w-100 h-100" id="wsRemainCover" style="--p:0"></div>
                 <div class="label">剩餘時間</div>
                 <div class="value" id="wsRemain">00:00</div>
               </div>
               <div class="divider-v"></div>
-              <!-- 播放/暫停/取消 -->
               <div class="play-area py-3">
                 <button id="btnPlay" class="btn btn-outline-primary btn-icon">▷</button>
                 <button id="btnPause" class="btn btn-outline-warning btn-icon">❚❚</button>
@@ -141,126 +126,87 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
   // ---- 資料結構 ----
-  const state = {
-    schedules: [],           // {id,title,items:[{id,sec,freq,prompt}], selected, editing, run:{active, paused, curIdx, curItemElapsedSec, scheduleElapsedSec}}
-    selectedId: null,
-    audio: { ctx:null, ticker:null, nextTickTs:0, tickIntervalMs:1000 },
-    voices: [],
+  const state={
+    schedules:[],           // {id,title,items:[{id,sec,freq,prompt}], selected, editing, run:{active,paused,curIdx,curItemElapsedSec,scheduleElapsedSec}}
+    selectedId:null,
+    audio:{ctx:null,ticker:null,nextTickTs:0,tickIntervalMs:1000},
+    voices:[],
   };
-  let idSeq = 1; const newId = () => (idSeq++).toString();
+  let idSeq=1; const newId=()=> (idSeq++).toString();
 
   // ---- 工具 ----
-  const qs = (sel,el=document)=>el.querySelector(sel);
-  const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
-  const fmtMMSS = (sec)=>{
-    sec = Math.max(0, Math.round(sec));
-    const m = Math.floor(sec/60), s = sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  };
-  const parseTimeInput = (txt)=>{
-    txt = (txt||'').trim();
-    if(!txt) return 0;
-    if(/^\d+$/.test(txt)) return parseInt(txt,10); // 以秒
-    if(/^:/.test(txt)) return 0;
-    const parts = txt.split(':');
-    if(parts.length===2){
-      let m = parseInt(parts[0]||'0',10)||0;
-      let s = parseInt(parts[1]||'0',10)||0;
-      m += Math.floor(s/60); s = s%60;
-      return m*60 + s;
-    }
-    return 0;
-  };
-  const escapeHtml = (s)=> s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  const qs=(sel,el=document)=>el.querySelector(sel);
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+  const fmtMMSS=(sec)=>{ sec=Math.max(0,Math.round(sec)); const m=Math.floor(sec/60), s=sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; };
+  const parseTimeInput=(txt)=>{ txt=(txt||'').trim(); if(!txt) return 0; if(/^\d+$/.test(txt)) return parseInt(txt,10); if(/^:/.test(txt)) return 0; const parts=txt.split(':'); if(parts.length===2){ let m=parseInt(parts[0]||'0',10)||0; let s=parseInt(parts[1]||'0',10)||0; m+=Math.floor(s/60); s=s%60; return m*60+s; } return 0; };
+  const escapeHtml=(s)=> String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
-  function speak(text){
-    if(!text) return;
-    try{
-      const utter = new SpeechSynthesisUtterance(text);
-      const zh = state.voices.find(v=>/zh|cmn/i.test(v.lang));
-      if(zh) utter.voice = zh;
-      utter.rate = 1; utter.pitch = 1; utter.volume = 1;
-      window.speechSynthesis.speak(utter);
-    }catch(e){}
-  }
+  function speak(text){ if(!text) return; try{ const utter=new SpeechSynthesisUtterance(text); const zh=state.voices.find(v=>/zh|cmn/i.test(v.lang)); if(zh) utter.voice=zh; utter.rate=1; utter.pitch=1; utter.volume=1; window.speechSynthesis.speak(utter);}catch(e){} }
 
-  function ensureAudio(){
-    if(!state.audio.ctx){
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if(AudioCtx) state.audio.ctx = new AudioCtx();
-    }
-    return state.audio.ctx;
-  }
-  function tickClick(){
-    const ctx = state.audio.ctx; if(!ctx) return;
-    const osc = ctx.createOscillator(); const gain = ctx.createGain();
-    osc.type = 'square'; osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.02);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(); osc.stop(ctx.currentTime + 0.03);
-  }
+  function ensureAudio(){ if(!state.audio.ctx){ const AudioCtx=window.AudioContext||window.webkitAudioContext; if(AudioCtx) state.audio.ctx=new AudioCtx(); } return state.audio.ctx; }
+  function tickClick(){ const ctx=state.audio.ctx; if(!ctx) return; const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.type='square'; osc.frequency.value=880; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.02); osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.03); }
 
   // ---- 初始範例行程（不預放項目） ----
   function createSample(){
-    const s1 = { id:newId(), title:'早晨專注', selected:false, editing:false, items: [], run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0} };
-    const s2 = { id:newId(), title:'番茄鐘 25-5', selected:false, editing:false, items: [], run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0} };
+    const s1={id:newId(), title:'早晨專注', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
+    const s2={id:newId(), title:'番茄鐘 25-5', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}};
     state.schedules.push(s1,s2);
   }
 
   // ---- 渲染：左側行程 ----
   function renderSchedules(){
-    const list = qs('#scheduleList'); list.innerHTML='';
+    const list=qs('#scheduleList'); list.innerHTML='';
     state.schedules.forEach(s=>{
-      const total = s.items.reduce((a,b)=>a+b.sec,0) || 0;
-      const remaining = total - s.run.scheduleElapsedSec;
-      const p = total? clamp(s.run.scheduleElapsedSec/total, 0, 1) : 0;
+      const total=s.items.reduce((a,b)=>a+b.sec,0)||0;
+      const remaining=total - s.run.scheduleElapsedSec;
+      const p= total? clamp(s.run.scheduleElapsedSec/total,0,1):0;
 
       const titleHtml = s.editing
         ? '<input class="form-control form-control-sm" value="'+escapeHtml(s.title)+'" data-role="title-input"/>'
         : '<div class="title-text">'+escapeHtml(s.title)+'</div>';
 
-      const card = document.createElement('div');
-      card.className = 'schedule clicky' + (s.selected?' selected':'') + (s.editing?' editing':'');
-      card.dataset.id = s.id;
-      card.innerHTML = `
-        <div class="sched-grid position-relative">
-          <div class="sched-overlay left cover-blue" style="--p:${p}"></div>
-          <div class="sched-title">${titleHtml}</div>
-          <div class="sched-time"><div class="time">${(s.run.active || s.run.paused) ? fmtMMSS(remaining) : '00:00'}</div></div>
-          <div class="sched-actions">
-            <div class="dropdown">
-              <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">⚙</button>
-              <ul class="dropdown-menu dropdown-menu-dark">
-                <li><a class="dropdown-item" data-act="edit">編輯</a></li>
-                <li><a class="dropdown-item" data-act="dup">複製</a></li>
-                <li><a class="dropdown-item text-danger" data-act="del">刪除</a></li>
-              </ul>
-            </div>
-          </div>
-        </div>`;
+      const card=document.createElement('div');
+      card.className='schedule clicky'+(s.selected?' selected':'')+(s.editing?' editing':'');
+      card.dataset.id=s.id;
+      card.innerHTML=
+        '<div class="sched-grid position-relative">\n'
+        + '  <div class="sched-overlay left cover-blue" style="--p:'+p+'"></div>\n'
+        + '  <div class="sched-title">'+titleHtml+'</div>\n'
+        + '  <div class="sched-time"><div class="time">'+((s.run.active||s.run.paused)?fmtMMSS(remaining):'00:00')+'</div></div>\n'
+        + '  <div class="sched-actions">\n'
+        + '    <div class="dropdown">\n'
+        + '      <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">⚙</button>\n'
+        + '      <ul class="dropdown-menu dropdown-menu-dark">\n'
+        + '        <li><a class="dropdown-item" data-act="edit">編輯</a></li>\n'
+        + '        <li><a class="dropdown-item" data-act="dup">複製</a></li>\n'
+        + '        <li><a class="dropdown-item text-danger" data-act="del">刪除</a></li>\n'
+        + '      </ul>\n'
+        + '    </div>\n'
+        + '  </div>\n'
+        + '</div>';
 
-      card.addEventListener('click', (ev)=>{
-        const isToggleBtn = ev.target.closest('.dropdown');
-        const isInput = ev.target.matches('input,textarea,select');
-        if(isToggleBtn || isInput) return;
+      card.addEventListener('click', ev=>{
+        const isToggleBtn=ev.target.closest('.dropdown');
+        const isInput=ev.target.matches('input,textarea,select');
+        if(isToggleBtn||isInput) return;
         if(s.editing) return;
         if(s.selected){ selectSchedule(null); } else { selectSchedule(s.id); }
       });
 
       card.querySelectorAll('[data-act]').forEach(a=>{
-        a.addEventListener('click', (ev)=>{
+        a.addEventListener('click', ev=>{
           ev.preventDefault(); ev.stopPropagation();
-          const act = a.getAttribute('data-act');
-          if(act==='edit') toggleEditSchedule(s.id, true);
+          const act=a.getAttribute('data-act');
+          if(act==='edit') toggleEditSchedule(s.id,true);
           if(act==='dup') duplicateSchedule(s.id);
           if(act==='del') deleteSchedule(s.id);
         });
       });
 
-      const input = card.querySelector('[data-role="title-input"]');
+      const input=card.querySelector('[data-role="title-input"]');
       if(input){
-        input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); finishEditSchedule(s.id, input.value); }});
-        input.addEventListener('blur', ()=> finishEditSchedule(s.id, input.value));
+        input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); finishEditSchedule(s.id,input.value); }});
+        input.addEventListener('blur', ()=> finishEditSchedule(s.id,input.value));
         setTimeout(()=>{input.focus(); input.select();},0);
       }
 
@@ -268,262 +214,141 @@
     });
   }
 
-  function selectSchedule(id){
-    state.schedules.forEach(s=> s.selected = (s.id===id));
-    state.selectedId = id || null;
-    renderSchedules();
-    renderWorkspace();
-  }
-
-  function toggleEditSchedule(id, on){
-    const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    s.editing = on;
-    renderSchedules();
-  }
-  function finishEditSchedule(id, title){
-    const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    s.title = (title||'').trim()||'未命名行程';
-    s.editing = false;
-    renderSchedules();
-  }
-  function duplicateSchedule(id){
-    const s = state.schedules.find(x=>x.id===id); if(!s) return;
-    const copy = JSON.parse(JSON.stringify(s));
-    copy.id = newId();
-    copy.title = s.title + ' (副本)';
-    copy.selected = false; copy.editing = false;
-    copy.items.forEach(it=> it.id = newId());
-    copy.run = {active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0};
-    state.schedules.push(copy);
-    renderSchedules();
-  }
-  function deleteSchedule(id){
-    const idx = state.schedules.findIndex(x=>x.id===id); if(idx<0) return;
-    const wasSelected = state.schedules[idx].selected;
-    state.schedules.splice(idx,1);
-    if(wasSelected) state.selectedId = null;
-    renderSchedules(); renderWorkspace();
-  }
+  function selectSchedule(id){ state.schedules.forEach(s=> s.selected=(s.id===id)); state.selectedId=id||null; renderSchedules(); renderWorkspace(); }
+  function toggleEditSchedule(id,on){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.editing=on; renderSchedules(); }
+  function finishEditSchedule(id,title){ const s=state.schedules.find(x=>x.id===id); if(!s) return; s.title=(title||'').trim()||'未命名行程'; s.editing=false; renderSchedules(); }
+  function duplicateSchedule(id){ const s=state.schedules.find(x=>x.id===id); if(!s) return; const copy=JSON.parse(JSON.stringify(s)); copy.id=newId(); copy.title=s.title+' (副本)'; copy.selected=false; copy.editing=false; copy.items.forEach(it=> it.id=newId()); copy.run={active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0}; state.schedules.push(copy); renderSchedules(); }
+  function deleteSchedule(id){ const idx=state.schedules.findIndex(x=>x.id===id); if(idx<0) return; const wasSelected=state.schedules[idx].selected; state.schedules.splice(idx,1); if(wasSelected) state.selectedId=null; renderSchedules(); renderWorkspace(); }
 
   // ---- 渲染：右側工作區 ----
   function renderWorkspace(){
-    const s = state.schedules.find(x=>x.id===state.selectedId);
-    const wsEmpty = qs('#wsEmpty');
-    const wsArea = qs('#wsArea');
+    const s=state.schedules.find(x=>x.id===state.selectedId);
+    const wsEmpty=qs('#wsEmpty');
+    const wsArea=qs('#wsArea');
     if(!s){ wsEmpty.classList.remove('d-none'); wsArea.classList.add('d-none'); return; }
     wsEmpty.classList.add('d-none'); wsArea.classList.remove('d-none');
 
-    const total = s.items.reduce((a,b)=>a+b.sec,0) || 0;
-    const remain = clamp(total - s.run.scheduleElapsedSec, 0, total);
-    qs('#wsRemain').textContent = fmtMMSS(remain);
-    qs('#wsRemainCover').style.setProperty('--p', total? (s.run.scheduleElapsedSec/total) : 0);
+    const total=s.items.reduce((a,b)=>a+b.sec,0)||0;
+    const remain=clamp(total - s.run.scheduleElapsedSec, 0, total);
+    qs('#wsRemain').textContent=fmtMMSS(remain);
+    qs('#wsRemainCover').style.setProperty('--p', total? (s.run.scheduleElapsedSec/total):0);
 
-    const wrap = qs('#itemsArea'); wrap.innerHTML='';
+    const wrap=qs('#itemsArea'); wrap.innerHTML='';
     s.items.forEach((it,idx)=>{
-      const isRunning = s.run.active && s.run.curIdx===idx && !s.run.paused;
-      const curElapsed = (s.run.curIdx===idx)? s.run.curItemElapsedSec : 0;
-      const p = it.sec ? clamp(curElapsed/it.sec,0,1) : 0;
+      const isRunning=s.run.active && s.run.curIdx===idx && !s.run.paused;
+      const curElapsed=(s.run.curIdx===idx)? s.run.curItemElapsedSec : 0;
+      const p= it.sec? clamp(curElapsed/it.sec,0,1):0;
 
-      const row = document.createElement('div');
-      row.className = 'item' + (it.__selected?' selected':'') + (isRunning?' running':'');
-      row.dataset.id = it.id; row.dataset.idx = idx;
-      row.innerHTML = `
-        <div class="cover-yellow position-absolute top-0 start-0 w-100 h-100" style="--p:${p}"></div>
-        <div class="item-grid">
-          <div class="cell center"><button class="btn btn-sm btn-outline-light" data-role="dup-item">＋</button></div>
-          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="time" value="${fmtMMSS(it.sec)}" placeholder="mm:ss"></div>
-          <div class="cell"><div class="freq-wrap">
-            <select class="form-select form-select-sm w-auto" data-role="freq">
-              <option ${it.freq==0?'selected':''} value="0">0</option>
-              <option ${it.freq==60?'selected':''} value="60">60</option>
-              <option ${it.freq==80?'selected':''} value="80">80</option>
-            </select><span>/分</span>
-          </div></div>
-          <div class="cell"><input type="text" class="form-control form-control-sm" data-role="prompt" value="${escapeHtml(it.prompt||'')}" placeholder="提示文字"></div>
-          <div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>
-        </div>`;
+      const row=document.createElement('div');
+      row.className='item'+(it.__selected?' selected':'')+(isRunning?' running':'');
+      row.dataset.id=it.id; row.dataset.idx=idx;
+      row.innerHTML=
+        '<div class="cover-yellow position-absolute top-0 start-0 w-100 h-100" style="--p:'+p+'"></div>'+
+        '<div class="item-grid">'+
+          '<div class="cell center"><button class="btn btn-sm btn-outline-light" data-role="dup-item">＋</button></div>'+
+          '<div class="cell"><input type="text" class="form-control form-control-sm" data-role="time" value="'+fmtMMSS(it.sec)+'" placeholder="mm:ss"></div>'+
+          '<div class="cell"><div class="freq-wrap">'+
+            '<select class="form-select form-select-sm w-auto" data-role="freq">'+
+              '<option '+(it.freq==0?'selected':'')+' value="0">0</option>'+
+              '<option '+(it.freq==60?'selected':'')+' value="60">60</option>'+
+              '<option '+(it.freq==80?'selected':'')+' value="80">80</option>'+
+            '</select><span>/分</span>'+
+          '</div></div>'+
+          '<div class="cell"><input type="text" class="form-control form-control-sm" data-role="prompt" value="'+escapeHtml(it.prompt||'')+'" placeholder="提示文字"></div>'+
+          '<div class="cell center"><button class="btn btn-sm btn-outline-danger" data-role="del-item">🗑</button></div>'+
+        '</div>';
 
-      row.addEventListener('click', (e)=>{
-        const isCtl = e.target.closest('button,select,input');
+      row.addEventListener('click', e=>{
+        const isCtl=e.target.closest('button,select,input');
         if(isCtl) return;
         s.items.forEach(x=> delete x.__selected);
-        if(!it.__selected){ it.__selected = true; } else { delete it.__selected; }
+        if(!it.__selected){ it.__selected=true; } else { delete it.__selected; }
         if(s.run.active && !s.run.paused){
-          if(s.run.curIdx===idx){ s.run.curItemElapsedSec = 0; }
+          if(s.run.curIdx===idx){ s.run.curItemElapsedSec=0; }
           else { stopRun(s); }
         }
         renderWorkspace();
       });
 
-      // 複製項目（插在該項目之後，且不選取）
-      row.querySelector('[data-role="dup-item"]').addEventListener('click', (e)=>{
+      // 複製（插在該項目之後，不選取）
+      row.querySelector('[data-role="dup-item"]').addEventListener('click', e=>{
         e.stopPropagation();
-        const clone = {...it, id:newId()};
-        delete clone.__selected;
-        s.items.splice(idx+1,0,clone);
-        renderWorkspace();
+        const clone={...it, id:newId()}; delete clone.__selected; s.items.splice(idx+1,0,clone); renderWorkspace();
       });
 
-      // 刪除項目（刪到 0 也不會自動補空項目）
-      row.querySelector('[data-role="del-item"]').addEventListener('click', (e)=>{
+      // 刪除（刪到 0 也不補空白）
+      row.querySelector('[data-role="del-item"]').addEventListener('click', e=>{
         e.stopPropagation();
         s.items.splice(idx,1);
         if(s.run.active){ stopRun(s); }
         renderWorkspace();
       });
 
-      row.querySelector('[data-role="time"]').addEventListener('change', (e)=>{
-        const secs = parseTimeInput(e.target.value);
-        it.sec = secs; e.target.value = fmtMMSS(it.sec);
-        renderWorkspace(); renderSchedules();
+      row.querySelector('[data-role="time"]').addEventListener('change', e=>{
+        const secs=parseTimeInput(e.target.value); it.sec=secs; e.target.value=fmtMMSS(it.sec); renderWorkspace(); renderSchedules();
       });
-      row.querySelector('[data-role="freq"]').addEventListener('change', (e)=>{
-        it.freq = parseInt(e.target.value,10)||0;
-      });
-      row.querySelector('[data-role="prompt"]').addEventListener('change', (e)=>{
-        it.prompt = e.target.value;
-      });
+      row.querySelector('[data-role="freq"]').addEventListener('change', e=>{ it.freq=parseInt(e.target.value,10)||0; });
+      row.querySelector('[data-role="prompt"]').addEventListener('change', e=>{ it.prompt=e.target.value; });
 
       wrap.appendChild(row);
     });
   }
 
   // ---- 執行控制 ----
-  let rafId = null; let lastTick = 0;
+  let rafId=null; let lastTick=0;
   function startRun(){
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    if(!s.items.length) return;
-    let startIdx = s.items.findIndex(x=>x.__selected);
-    if(startIdx<0) startIdx = 0;
-    if(s.run.active && !s.run.paused) return;
-
-    if(!s.run.active){
-      s.run.active = true; s.run.paused = false;
-      s.run.curIdx = startIdx; s.run.curItemElapsedSec = 0; s.run.scheduleElapsedSec = sumBefore(s.items, startIdx);
-      speak(s.items[startIdx].prompt);
-      initTickerForItem(s.items[startIdx]);
-    } else {
-      s.run.paused = false;
-      initTickerForItem(s.items[s.run.curIdx]);
-    }
-    ensureAudio();
-
-    lastTick = performance.now();
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(loop);
-    renderWorkspace(); renderSchedules();
+    const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return; if(!s.items.length) return;
+    let startIdx=s.items.findIndex(x=>x.__selected); if(startIdx<0) startIdx=0; if(s.run.active && !s.run.paused) return;
+    if(!s.run.active){ s.run.active=true; s.run.paused=false; s.run.curIdx=startIdx; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=sumBefore(s.items,startIdx); speak(s.items[startIdx].prompt); initTickerForItem(s.items[startIdx]); }
+    else { s.run.paused=false; initTickerForItem(s.items[s.run.curIdx]); }
+    ensureAudio(); lastTick=performance.now(); cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); renderWorkspace(); renderSchedules();
   }
-
-  function pauseRun(){
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s || !s.run.active) return;
-    s.run.paused = true;
-    stopTicker();
-    cancelAnimationFrame(rafId);
-    renderWorkspace(); renderSchedules();
-  }
-  function cancelRun(){
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    s.items.forEach(x=> delete x.__selected);
-    stopRun(s);
-    renderWorkspace(); renderSchedules();
-  }
-  function stopRun(s){
-    s.run.active = false; s.run.paused = false; s.run.curIdx = 0; s.run.curItemElapsedSec = 0; s.run.scheduleElapsedSec = 0;
-    stopTicker(); cancelAnimationFrame(rafId);
-  }
-
-  function sumBefore(arr, idx){ let sum = 0; for(let i=0;i<idx;i++) sum += arr[i].sec; return sum; }
+  function pauseRun(){ const s=state.schedules.find(x=>x.id===state.selectedId); if(!s||!s.run.active) return; s.run.paused=true; stopTicker(); cancelAnimationFrame(rafId); renderWorkspace(); renderSchedules(); }
+  function cancelRun(){ const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return; s.items.forEach(x=> delete x.__selected); stopRun(s); renderWorkspace(); renderSchedules(); }
+  function stopRun(s){ s.run.active=false; s.run.paused=false; s.run.curIdx=0; s.run.curItemElapsedSec=0; s.run.scheduleElapsedSec=0; stopTicker(); cancelAnimationFrame(rafId); }
+  function sumBefore(arr,idx){ let sum=0; for(let i=0;i<idx;i++) sum+=arr[i].sec; return sum; }
 
   function loop(ts){
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s || !s.run.active || s.run.paused){ cancelAnimationFrame(rafId); return; }
-    const dt = Math.max(0, (ts - lastTick)/1000); lastTick = ts;
-
-    const item = s.items[s.run.curIdx];
-    s.run.curItemElapsedSec += dt;
-    s.run.scheduleElapsedSec += dt;
-
-    advanceTicker();
-
-    if(item.sec>0 && s.run.curItemElapsedSec >= item.sec){
+    const s=state.schedules.find(x=>x.id===state.selectedId); if(!s||!s.run.active||s.run.paused){ cancelAnimationFrame(rafId); return; }
+    const dt=Math.max(0,(ts-lastTick)/1000); lastTick=ts;
+    const item=s.items[s.run.curIdx]; s.run.curItemElapsedSec+=dt; s.run.scheduleElapsedSec+=dt; advanceTicker();
+    if(item.sec>0 && s.run.curItemElapsedSec>=item.sec){
       s.run.curIdx++;
-      if(s.run.curIdx >= s.items.length){
-        stopRun(s);
-        renderWorkspace(); renderSchedules();
-        return;
-      }
-      const nextItem = s.items[s.run.curIdx];
-      s.run.curItemElapsedSec = 0;
-      speak(nextItem.prompt);
-      initTickerForItem(nextItem);
-      scrollToRunningItem();
+      if(s.run.curIdx>=s.items.length){ stopRun(s); renderWorkspace(); renderSchedules(); return; }
+      const nextItem=s.items[s.run.curIdx]; s.run.curItemElapsedSec=0; speak(nextItem.prompt); initTickerForItem(nextItem); scrollToRunningItem();
     }
-
-    renderWorkspace(); renderSchedules();
-    rafId = requestAnimationFrame(loop);
+    renderWorkspace(); renderSchedules(); rafId=requestAnimationFrame(loop);
   }
 
-  function scrollToRunningItem(){
-    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-    const el = qs(`[data-idx="${s.run.curIdx}"]`, qs('#itemsArea'));
-    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
-  }
+  function scrollToRunningItem(){ const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return; const el=qs('[data-idx="'+s.run.curIdx+'"]', qs('#itemsArea')); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }
 
   // ---- 滴答器 ----
-  function initTickerForItem(item){
-    const ctx = ensureAudio(); if(!ctx) return;
-    stopTicker();
-    const bpm = item.freq||0; if(bpm<=0) return;
-    state.audio.tickIntervalMs = 60000 / bpm;
-    state.audio.nextTickTs = performance.now();
-    state.audio.ticker = true;
-  }
-  function stopTicker(){ state.audio.ticker = null; }
-  function advanceTicker(){
-    if(!state.audio.ticker || !state.audio.ctx) return;
-    const now = performance.now();
-    while(now >= state.audio.nextTickTs){ tickClick(); state.audio.nextTickTs += state.audio.tickIntervalMs; }
-  }
+  function initTickerForItem(item){ const ctx=ensureAudio(); if(!ctx) return; stopTicker(); const bpm=item.freq||0; if(bpm<=0) return; state.audio.tickIntervalMs=60000/bpm; state.audio.nextTickTs=performance.now(); state.audio.ticker=true; }
+  function stopTicker(){ state.audio.ticker=null; }
+  function advanceTicker(){ if(!state.audio.ticker||!state.audio.ctx) return; const now=performance.now(); while(now>=state.audio.nextTickTs){ tickClick(); state.audio.nextTickTs+=state.audio.tickIntervalMs; } }
 
   // ---- 事件註冊 ----
   function hookEvents(){
     qs('#btnAddSchedule').addEventListener('click', ()=>{
-      const s = { id:newId(), title:'新行程', selected:false, editing:false,
-        items: [],
-        run:{active:false, paused:false, curIdx:0, curItemElapsedSec:0, scheduleElapsedSec:0}
-      };
-      state.schedules.push(s);
-      renderSchedules();
+      const s={ id:newId(), title:'新行程', selected:false, editing:false, items:[], run:{active:false,paused:false,curIdx:0,curItemElapsedSec:0,scheduleElapsedSec:0} };
+      state.schedules.push(s); renderSchedules();
     });
 
-    // 在「最後」新增一個項目
     qs('#btnAddItem').addEventListener('click', ()=>{
-      const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-      s.items.push({id:newId(), sec:0, freq:0, prompt:''});
-      renderWorkspace();
-      const area = qs('#itemsArea'); if(area) area.scrollTop = area.scrollHeight;
+      const s=state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
+      s.items.push({id:newId(), sec:0, freq:0, prompt:''}); renderWorkspace(); const area=qs('#itemsArea'); if(area) area.scrollTop=area.scrollHeight;
     });
 
-    qs('#btnPlay').addEventListener('click', ()=>{
-      if(!state.selectedId) return;
-      ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume();
-      startRun(); scrollToRunningItem();
-    });
+    qs('#btnPlay').addEventListener('click', ()=>{ if(!state.selectedId) return; ensureAudio(); if(state.audio.ctx && state.audio.ctx.state==='suspended') state.audio.ctx.resume(); startRun(); scrollToRunningItem(); });
     qs('#btnPause').addEventListener('click', ()=> pauseRun());
     qs('#btnCancel').addEventListener('click', ()=> cancelRun());
 
-    if('speechSynthesis' in window){
-      const loadVoices = ()=>{ state.voices = speechSynthesis.getVoices(); };
-      speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
-    }
+    if('speechSynthesis' in window){ const loadVoices=()=>{ state.voices=speechSynthesis.getVoices(); }; speechSynthesis.onvoiceschanged=loadVoices; loadVoices(); }
   }
 
   // Dropdown 展開/關閉時提高卡片層級
-  document.addEventListener('show.bs.dropdown', (e)=>{
-    const card = e.target.closest('.schedule'); if(card) card.classList.add('dropdown-open');
-  });
-  document.addEventListener('hide.bs.dropdown', (e)=>{
-    const card = e.target.closest('.schedule'); if(card) card.classList.remove('dropdown-open');
-  });
+  document.addEventListener('show.bs.dropdown', e=>{ const card=e.target.closest('.schedule'); if(card) card.classList.add('dropdown-open'); });
+  document.addEventListener('hide.bs.dropdown', e=>{ const card=e.target.closest('.schedule'); if(card) card.classList.remove('dropdown-open'); });
 
   // ---- 啟動 ----
   createSample();
@@ -533,28 +358,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
