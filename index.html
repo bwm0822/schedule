@@ -392,11 +392,12 @@
         renderWorkspace();
       });
 
-      // 複製項目
+      // 複製項目（插在該項目之後，且不選取）
       row.querySelector('[data-role="dup-item"]').addEventListener('click', (e)=>{
         e.stopPropagation();
         const clone = {...it, id:newId()};
-        s.items.splice(idx+1,0,clone);
+        delete clone.__selected; // 不要沿用選取狀態
+        s.items.splice(idx+1,0,clone); // 放在當前項目之後
         renderWorkspace();
       });
       // 刪除項目
@@ -550,10 +551,13 @@
     });
 
     qs('#btnAddItem').addEventListener('click', ()=>{
-      const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
-      s.items.unshift({id:newId(), sec:0, freq:0, prompt:''});
-      renderWorkspace();
-    });
+    const s = state.schedules.find(x=>x.id===state.selectedId); if(!s) return;
+    s.items.push({id:newId(), sec:0, freq:0, prompt:''}); // 新增在最後
+    renderWorkspace();
+    // 滾到最後一個項目
+    const area = qs('#itemsArea');
+    if(area) area.scrollTop = area.scrollHeight;
+  });
 
     qs('#btnPlay').addEventListener('click', ()=>{
       // 必須先選取一個行程
@@ -590,6 +594,7 @@
   </script>
 </body>
 </html>
+
 
 
 
