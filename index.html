@@ -69,7 +69,11 @@
     .item.selected{outline:2px solid rgba(255,193,7,.5)}
     .item.running{box-shadow:0 0 0 2px rgba(255,193,7,.35) inset}
 
-    .cell input[type="text"],.cell select{background:transparent;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem}
+    .cell input[type="text"]{background:transparent;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem}
+    .cell select{background-color:#2a2f33;color:#f8f9fa;border:1px solid var(--border);border-radius:.25rem;padding:.25rem .5rem;/* 避免文字與下拉箭頭重疊 */padding-right:2rem;background-position:right .5rem center;background-repeat:no-repeat;min-width:84px}
+    .cell select.form-select-sm{padding-right:1.75rem}
+    .cell select option{background-color:#2a2f33;color:#f8f9fa}
+    .cell select option{background-color:#2a2f33;color:#f8f9fa}
     .cell input[type="text"]::placeholder{color:#6c757d}
     .freq-wrap{display:flex;gap:.4rem;align-items:center}
 
@@ -473,6 +477,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
